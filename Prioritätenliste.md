@@ -5,7 +5,7 @@ Diese Punkte zuerst machen.
 
 ### 1. Projekt erstellen
 - [x] Android Studio Projekt erstellen
-- [ ] Java auswählen
+- [x] Java auswählen
 - [ ] App auf Handy/Emulator starten
 
 ---
