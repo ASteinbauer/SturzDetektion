@@ -1,0 +1,48 @@
+{
+  "sample_rate_hz": 50,
+  "window_seconds": 2.0,
+  "window_size": 100,
+  "channels": [
+    "ax",
+    "ay",
+    "az",
+    "gx",
+    "gy",
+    "gz"
+  ],
+  "classes": [
+    "alltag_ruhend",
+    "gehen",
+    "hinlegen",
+    "handy_faellt",
+    "sturz"
+  ],
+  "normalization": {
+    "mean": [
+      0.016370436176657677,
+      0.08394578844308853,
+      3.9263033866882324,
+      -0.0007912172004580498,
+      0.0013917428441345692,
+      -0.00030344727565534413
+    ],
+    "std": [
+      4.279571533203125,
+      4.387080669403076,
+      6.283533573150635,
+      0.9517859220504761,
+      0.962641179561615,
+      0.9527882933616638
+    ]
+  },
+  "input_shape": [
+    1,
+    100,
+    6
+  ],
+  "output_shape": [
+    1,
+    5
+  ],
+  "note": "Android muss dieselbe Normalisierung verwenden: normalized = (raw - mean) / std"
+}

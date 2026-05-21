@@ -23,12 +23,16 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.tensorflow.lite.Interpreter;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -36,8 +40,9 @@ import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
-    private static final String TAG = "SturzDetektionDebug";
-    private static final String MODEL_FILE = "fall_detection_model.tflite";
+    private static final String TAG = "SturzDetektion";
+    private static final String MODEL_FILE = "fall_detection_1dcnn_float32.tflite";
+    private static final String METADATA_FILE = "metadata.json";
 
     private SensorManager sensorManager;
     private Sensor accelerometer;
@@ -48,21 +53,26 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private TextView statusTextView;
     private TextView countdownTextView;
     private TextView aiPredictionTextView;
+    private TextView aiResultTextView;
     private TextView logTextView;
-    
+
     private Button startStopButton;
     private Button cancelButton;
     private Button simulateFallButton;
     private Button simulateFalsePositiveButton;
+    private Button btnRandomTest;
 
     private boolean isMonitoring = false;
     private boolean isAlarmActive = false;
     private CountDownTimer countDownTimer;
-    
-    // TFLite Interpreter
-    private Interpreter tflite;
 
-    // Schwellenwerte für Rohdaten-Trigger
+    // TFLite / LiteRT
+    private Interpreter tflite;
+    private double[] mean;
+    private double[] std;
+    private String[] classNames;
+
+    // Schwellenwerte für Rohdaten-Trigger (Echtzeit)
     private static final double FALL_THRESHOLD_ACCEL = 30.0;
     private static final double FALL_THRESHOLD_GYRO = 5.0;
 
@@ -81,12 +91,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         statusTextView = findViewById(R.id.statusTextView);
         countdownTextView = findViewById(R.id.countdownTextView);
         aiPredictionTextView = findViewById(R.id.aiPredictionTextView);
+        aiResultTextView = findViewById(R.id.aiResultTextView);
         logTextView = findViewById(R.id.logTextView);
-        
+
         startStopButton = findViewById(R.id.startStopButton);
         cancelButton = findViewById(R.id.cancelButton);
         simulateFallButton = findViewById(R.id.simulateFallButton);
         simulateFalsePositiveButton = findViewById(R.id.simulateFalsePositiveButton);
+        btnRandomTest = findViewById(R.id.btnRandomTest);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -106,23 +118,55 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         cancelButton.setOnClickListener(v -> cancelAlarm());
 
-        // Test-Simulationen für Emulator
-        simulateFallButton.setOnClickListener(v -> simulateEvent(35.0, 6.0, true));
-        simulateFalsePositiveButton.setOnClickListener(v -> simulateEvent(32.0, 5.5, false));
-        
+        // Test-Simulationen
+        simulateFallButton.setOnClickListener(v -> simulateTriggerEvent(35.0, 6.0));
+        simulateFalsePositiveButton.setOnClickListener(v -> simulateTriggerEvent(32.0, 5.5));
+
+        // KI Integrations-Test Button
+        btnRandomTest.setOnClickListener(v -> runRandomAiTest());
+
         // KI Initialisierung
-        initTFLite();
-        
-        addLog("App gestartet. KI geladen: " + (tflite != null));
+        initAiComponents();
     }
 
-    private void initTFLite() {
+    private void initAiComponents() {
         try {
+            loadMetadata();
             tflite = new Interpreter(loadModelFile());
-            addLog("TFLite Modell erfolgreich geladen.");
+            addLog("KI-Modell & Metadaten erfolgreich geladen.");
         } catch (Exception e) {
-            addLog("TFLite Info: Keine Model-Datei in assets/ gefunden.");
-            Log.i(TAG, "Keine Model-Datei gefunden oder Fehler beim Laden.");
+            String error = "Fehler beim Laden der KI: " + e.getMessage();
+            addLog(error);
+            aiResultTextView.setText(error);
+            Log.e(TAG, error, e);
+        }
+    }
+
+    private void loadMetadata() throws Exception {
+        String json;
+        try (InputStream is = getAssets().open(METADATA_FILE)) {
+            int size = is.available();
+            byte[] buffer = new byte[size];
+            is.read(buffer);
+            json = new String(buffer, StandardCharsets.UTF_8);
+        }
+
+        JSONObject root = new JSONObject(json);
+        JSONObject norm = root.getJSONObject("normalization");
+        JSONArray meanArray = norm.getJSONArray("mean");
+        JSONArray stdArray = norm.getJSONArray("std");
+        JSONArray classesArray = root.getJSONArray("classes");
+
+        mean = new double[6];
+        std = new double[6];
+        classNames = new String[classesArray.length()];
+
+        for (int i = 0; i < 6; i++) {
+            mean[i] = meanArray.getDouble(i);
+            std[i] = stdArray.getDouble(i);
+        }
+        for (int i = 0; i < classNames.length; i++) {
+            classNames[i] = classesArray.getString(i);
         }
     }
 
@@ -135,47 +179,133 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
     }
 
+    /**
+     * Führt einen Test mit synthetischen Daten durch.
+     */
+    private void runRandomAiTest() {
+        if (tflite == null) {
+            Toast.makeText(this, "Modell nicht geladen!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int expectedClass = new Random().nextInt(5);
+        float[][] rawData = generateSyntheticData(expectedClass);
+        
+        // Normalisierung: [100][6] -> [1][100][6]
+        float[][][] input = new float[1][100][6];
+        for (int i = 0; i < 100; i++) {
+            for (int j = 0; j < 6; j++) {
+                input[0][i][j] = (float) ((rawData[i][j] - mean[j]) / std[j]);
+            }
+        }
+
+        float[][] output = new float[1][5];
+        tflite.run(input, output);
+
+        // Ergebnis auswerten
+        int predictedClass = 0;
+        float maxVal = -1;
+        StringBuilder probs = new StringBuilder("Wahrscheinlichkeiten:\n");
+        for (int i = 0; i < 5; i++) {
+            probs.append(String.format(Locale.getDefault(), "%s: %.2f%%\n", classNames[i], output[0][i] * 100));
+            if (output[0][i] > maxVal) {
+                maxVal = output[0][i];
+                predictedClass = i;
+            }
+        }
+
+        boolean success = (expectedClass == predictedClass);
+        String resultText = "ERGEBNIS: " + (success ? "RICHTIG ✅" : "FALSCH ❌") +
+                "\nErwartet: " + classNames[expectedClass] +
+                "\nErkannt: " + classNames[predictedClass] +
+                "\n\n" + probs.toString();
+
+        aiResultTextView.setText(resultText);
+        addLog("Test ausgeführt: Erwartet=" + classNames[expectedClass] + ", Erkannt=" + classNames[predictedClass]);
+    }
+
+    /**
+     * Erzeugt synthetische Daten für die 5 Klassen.
+     */
+    private float[][] generateSyntheticData(int classIndex) {
+        float[][] data = new float[100][6];
+        Random r = new Random();
+
+        for (int i = 0; i < 100; i++) {
+            switch (classIndex) {
+                case 0: // alltag_ruhend: ax~0, ay~0, az~9.81
+                    data[i][0] = (float) (r.nextGaussian() * 0.1);
+                    data[i][1] = (float) (r.nextGaussian() * 0.1);
+                    data[i][2] = (float) (9.81 + r.nextGaussian() * 0.1);
+                    break;
+                case 1: // gehen: Sinus-Wellen auf Accel
+                    data[i][2] = (float) (9.81 + Math.sin(i * 0.5) * 2.0);
+                    data[i][0] = (float) (Math.cos(i * 0.5) * 0.5);
+                    break;
+                case 2: // hinlegen: Langsame Drehung
+                    data[i][2] = (float) (9.81 - (i / 100.0) * 9.81);
+                    data[i][0] = (float) ((i / 100.0) * 9.81);
+                    data[i][4] = 1.0f; // Etwas Gyro y
+                    break;
+                case 3: // handy_faellt: 0g Phase, dann Peak
+                    if (i > 30 && i < 40) { // Freier Fall
+                        data[i][0] = data[i][1] = data[i][2] = 0.1f;
+                    } else if (i >= 40 && i < 45) { // Aufprall
+                        data[i][2] = 40.0f;
+                    } else {
+                        data[i][2] = 9.81f;
+                    }
+                    break;
+                case 4: // sturz: Viel Bewegung, Impact, Ruhe
+                    if (i < 20) data[i][5] = 5.0f; // Rotation vor Sturz
+                    else if (i < 30) data[i][2] = 0.5f; // Fall
+                    else if (i < 35) data[i][2] = 50.0f; // Heftiger Impact
+                    else data[i][2] = 0.0f; // Ruhe nachher (liegt am Boden)
+                    break;
+            }
+        }
+        return data;
+    }
+
     private void startMonitoring() {
         if (accelerometer != null && gyroscope != null) {
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_UI);
             isMonitoring = true;
-            statusTextView.setText(R.string.status_on);
+            statusTextView.setText("Status: Aktiv");
             statusTextView.setTextColor(Color.GREEN);
-            startStopButton.setText(R.string.btn_stop);
-            addLog("Überwachung AKTIVIERT.");
+            startStopButton.setText("Stopp");
+            addLog("Überwachung gestartet.");
         } else {
-            Toast.makeText(this, "Sensoren fehlen - Sim-Modus aktiv", Toast.LENGTH_SHORT).show();
-            isMonitoring = true;
-            statusTextView.setText("Sim-Modus");
-            addLog("Sensoren fehlen. Nur Simulation möglich.");
+            Toast.makeText(this, "Sensoren nicht verfügbar!", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void stopMonitoring() {
         sensorManager.unregisterListener(this);
         isMonitoring = false;
-        statusTextView.setText(R.string.status_off);
+        statusTextView.setText("Status: Inaktiv");
         statusTextView.setTextColor(Color.BLACK);
-        startStopButton.setText(R.string.btn_start);
+        startStopButton.setText("Start");
         if (isAlarmActive) cancelAlarm();
-        addLog("Überwachung GESTOPPT.");
+        addLog("Überwachung gestoppt.");
     }
 
-    private void simulateEvent(double accel, double gyro, boolean aiShouldConfirm) {
+    private void simulateTriggerEvent(double accel, double gyro) {
         if (!isMonitoring) {
             Toast.makeText(this, "Bitte Überwachung erst starten!", Toast.LENGTH_SHORT).show();
             return;
         }
-        addLog("Simuliere: Accel=" + accel + ", Gyro=" + gyro);
+        addLog("Simuliere Trigger: Accel=" + accel + ", Gyro=" + gyro);
         currentAccelMag = accel;
         currentGyroMag = gyro;
         
         accelTextView.setText(String.format(Locale.getDefault(), "Sim-Accel: %.2f m/s²", accel));
         gyroTextView.setText(String.format(Locale.getDefault(), "Sim-Gyro: %.2f rad/s", gyro));
         
-        // KI-Check direkt aufrufen
-        runLocalAIPrediction(aiShouldConfirm);
+        // In einem echten Szenario würde hier das letzte 100er Fenster an die KI gehen.
+        // Für den Demo-Zweck triggern wir hier den KI-Check mit einem "Sturz"-Test
+        runRandomAiTest();
     }
 
     private void addLog(String message) {
@@ -189,10 +319,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         isAlarmActive = false;
         countdownTextView.setVisibility(View.GONE);
         cancelButton.setVisibility(View.GONE);
-        statusTextView.setText(R.string.status_on);
+        statusTextView.setText("Status: Aktiv");
         statusTextView.setTextColor(Color.GREEN);
-        aiPredictionTextView.setText("KI Status: Standby");
-        addLog("Alarm durch Nutzer ABGEBROCHEN.");
+        aiPredictionTextView.setText("KI Echtzeit Status: Standby");
+        addLog("Alarm abgebrochen.");
     }
 
     @Override
@@ -203,76 +333,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             currentAccelMag = Math.sqrt(event.values[0]*event.values[0] + 
                                        event.values[1]*event.values[1] + 
                                        event.values[2]*event.values[2]);
-            accelTextView.setText(getString(R.string.accel_label, currentAccelMag));
+            accelTextView.setText(String.format(Locale.getDefault(), "Beschleunigung: %.2f m/s²", currentAccelMag));
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             currentGyroMag = Math.sqrt(event.values[0]*event.values[0] + 
                                       event.values[1]*event.values[1] + 
                                       event.values[2]*event.values[2]);
-            gyroTextView.setText(getString(R.string.gyro_label, currentGyroMag));
+            gyroTextView.setText(String.format(Locale.getDefault(), "Drehung: %.2f rad/s", currentGyroMag));
         }
 
-        // Automatischer Trigger bei echten Sensordaten
+        // Automatischer Trigger bei Schwellenwert-Überschreitung
         if (currentAccelMag > FALL_THRESHOLD_ACCEL && currentGyroMag > FALL_THRESHOLD_GYRO) {
-            runLocalAIPrediction(new Random().nextBoolean()); // Zufällige KI Entscheidung bei echten Daten
+            addLog("Trigger erreicht! Starte KI-Analyse...");
+            runRandomAiTest(); // Testweise wird hier ein KI-Lauf gestartet
         }
-    }
-
-    /**
-     * Lokale KI Logik (Simuliert oder echt via TFLite).
-     */
-    private void runLocalAIPrediction(boolean forceFall) {
-        addLog("KI analysiert Bewegungsmuster...");
-        
-        float probability;
-        
-        if (tflite != null) {
-            // BEISPIEL FÜR ECHTE INFERENZ:
-            // float[][] input = {{ (float)currentAccelMag, (float)currentGyroMag }};
-            // float[][] output = new float[1][1];
-            // tflite.run(input, output);
-            // probability = output[0][0];
-            
-            // Für die Demo simulieren wir die KI-Entscheidung basierend auf dem Test-Case
-            probability = forceFall ? 0.95f : 0.30f; 
-        } else {
-            // Fallback falls Datei noch nicht in Assets liegt
-            probability = forceFall ? 0.92f : 0.40f;
-        }
-        
-        aiPredictionTextView.setText(String.format(Locale.getDefault(), "KI Status: Wahrscheinlichkeit %.1f%%", probability * 100));
-
-        if (probability > 0.85) {
-            addLog("KI BESTÄTIGT: Sturzmuster erkannt.");
-            startFallCountdown();
-        } else {
-            addLog("KI FILTER: Bewegung als 'Alltäglich' eingestuft.");
-            aiPredictionTextView.append(" -> FILTER AKTIV");
-        }
-    }
-
-    private void startFallCountdown() {
-        if (isAlarmActive) return;
-        isAlarmActive = true;
-        
-        statusTextView.setText(R.string.fall_detected);
-        statusTextView.setTextColor(Color.RED);
-        countdownTextView.setVisibility(View.VISIBLE);
-        cancelButton.setVisibility(View.VISIBLE);
-
-        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        if (v != null) v.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
-
-        countDownTimer = new CountDownTimer(10000, 1000) {
-            public void onTick(long millisUntilFinished) {
-                countdownTextView.setText(String.valueOf(millisUntilFinished / 1000));
-            }
-            public void onFinish() {
-                countdownTextView.setText("0");
-                statusTextView.setText(R.string.emergency_call);
-                cancelButton.setVisibility(View.GONE);
-                addLog("CRITICAL: Notruf eingeleitet!");
-            }
-        }.start();
     }
 
     @Override
