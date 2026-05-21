@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">SturzDetektion</string>
+    <string name="status_off">Überwachung aus</string>
+    <string name="status_on">Überwachung aktiv</string>
+    <string name="btn_start">Überwachung starten</string>
+    <string name="btn_stop">Überwachung stoppen</string>
+    <string name="btn_cancel">Alarm abbrechen</string>
+    <string name="fall_detected">STURZ ERKANNT!</string>
+    <string name="emergency_call">NOTRUF WIRD GESTARTET…</string>
+    <string name="accel_label">Beschleunigung: %.2f m/s²</string>
+    <string name="gyro_label">Drehung: %.2f rad/s</string>
+    <string name="toast_no_sensors">Wichtige Sensoren fehlen!</string>
+    <string name="toast_alarm_cancelled">Alarm abgebrochen</string>
+
+    <!-- Debug / Simulation Strings -->
+    <string name="debug_title">DEBUG / SIMULATOR</string>
+    <string name="test_fall_confirm">Test 1: Echter Sturz (KI Ja)</string>
+    <string name="test_fall_reject">Test 2: Rempler (KI Nein)</string>
+    <string name="ai_prediction_label">KI Status: %s</string>
+    <string name="log_initial">System Log:\nWarte auf Start...</string>
 </resources>
