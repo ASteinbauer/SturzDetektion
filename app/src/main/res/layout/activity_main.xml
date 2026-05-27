@@ -9,163 +9,152 @@
     tools:context=".MainActivity">
 
     <TextView
-        android:id="@+id/titleTextView"
+        android:id="@+id/textMonitoringStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Sturzdetektion KI Test"
-        android:textSize="24sp"
+        android:text="Überwachung inaktiv"
+        android:textSize="20sp"
         android:textStyle="bold"
+        android:textColor="#757575"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <TextView
-        android:id="@+id/statusTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Status: Inaktiv"
-        android:textSize="18sp"
-        app:layout_constraintTop_toBottomOf="@id/titleTextView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
     <Button
-        android:id="@+id/startStopButton"
+        android:id="@+id/buttonToggleMonitoring"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Start"
-        app:layout_constraintTop_toBottomOf="@id/statusTextView"
+        android:text="Überwachung starten"
+        app:layout_constraintTop_toBottomOf="@id/textMonitoringStatus"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <Button
-        android:id="@+id/cancelButton"
-        android:layout_width="wrap_content"
+    <GridLayout
+        android:id="@+id/infoGrid"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Alarm Stoppen"
-        android:visibility="gone"
-        android:backgroundTint="@android:color/holo_green_dark"
-        app:layout_constraintTop_toBottomOf="@id/startStopButton"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        android:layout_marginTop="16dp"
+        android:columnCount="2"
+        android:rowCount="7"
+        app:layout_constraintTop_toBottomOf="@id/buttonToggleMonitoring">
 
-    <TextView
-        android:id="@+id/countdownTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="10"
-        android:textSize="40sp"
-        android:textColor="@android:color/holo_red_dark"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/cancelButton"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <TextView android:text="Sensorquelle: " android:textStyle="bold" />
+        <TextView android:id="@+id/textSensorSource" android:text="-" />
+
+        <TextView android:text="Accel: " android:textStyle="bold" />
+        <TextView android:id="@+id/textAccel" android:text="0.00 m/s²" />
+
+        <TextView android:text="Gyro: " android:textStyle="bold" />
+        <TextView android:id="@+id/textGyro" android:text="0.00 rad/s" />
+
+        <TextView android:text="KI-Modell: " android:textStyle="bold" />
+        <TextView android:id="@+id/textModelStatus" android:text="Prüfe..." />
+
+        <TextView android:text="Erkennungsmodus: " android:textStyle="bold" />
+        <TextView android:id="@+id/textDetectionMode" android:text="-" />
+
+        <TextView android:text="Confidence: " android:textStyle="bold" />
+        <TextView android:id="@+id/textConfidence" android:text="0 %" />
+
+        <TextView android:text="Ergebnis: " android:textStyle="bold" />
+        <TextView android:id="@+id/textResult" android:text="-" android:textSize="16sp" />
+    </GridLayout>
 
     <ScrollView
+        android:id="@+id/layoutDebugSection"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/countdownTextView"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:layout_marginTop="16dp"
+        android:background="#EFEFEF"
+        android:padding="8dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/infoGrid"
+        app:layout_constraintBottom_toTopOf="@id/textSystemLog">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#F0F0F0"
-            android:padding="12dp">
+            android:orientation="vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="KI INTEGRATIONS-TEST"
+                android:text="SIMULATOR (DEBUG)"
                 android:textStyle="bold"
-                android:textColor="#666" />
+                android:textColor="#3F51B5" />
 
-            <Button
-                android:id="@+id/btnRandomTest"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Zufälligen Test ausführen"
-                android:layout_marginTop="8dp"
-                android:backgroundTint="#2196F3" />
-
-            <TextView
-                android:id="@+id/aiResultTextView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Testergebnis: -"
-                android:padding="8dp"
-                android:background="#E3F2FD"
-                android:textSize="12sp"
-                android:fontFamily="monospace" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#CCC"
-                android:layout_marginVertical="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Simulationen (Trigger)"
-                android:textStyle="bold"
-                android:textColor="#666" />
-
-            <Button
-                android:id="@+id/simulateFallButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Trigger: Sturz simulieren"
-                android:layout_marginTop="4dp" />
-
-            <Button
-                android:id="@+id/simulateFalsePositiveButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Trigger: Rempler simulieren"
-                android:layout_marginTop="4dp" />
-
-            <TextView
-                android:id="@+id/accelTextView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Beschleunigung: 0.00 m/s²" />
-
-            <TextView
-                android:id="@+id/gyroTextView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Drehung: 0.00 rad/s" />
-
-            <TextView
-                android:id="@+id/aiPredictionTextView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="KI Echtzeit Status: -"
-                android:padding="8dp"
-                android:background="#E0E0E0" />
-
-            <TextView
-                android:id="@+id/logTextView"
-                android:layout_width="match_parent"
-                android:layout_height="120dp"
-                android:layout_marginTop="8dp"
-                android:text="System Log:"
-                android:textSize="10sp"
-                android:textColor="#333"
-                android:background="#FFF"
-                android:padding="4dp" />
-
+            <Button android:id="@+id/btnSimFall" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Echter Sturz" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimBump" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Rempler / Stoß" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimWalk" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Normales Gehen" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimJog" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Joggen / Rennen" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimTableDrop" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Handy fällt vom Tisch" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimSit" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Hinsetzen" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimStumble" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Stolpern ohne Sturz" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimStairs" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Treppe gehen" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimFallLowRot" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Sturz mit wenig Drehung" android:textAllCaps="false" />
+            <Button android:id="@+id/btnSimFallHighRot" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Sturz mit starker Drehung" android:textAllCaps="false" />
         </LinearLayout>
     </ScrollView>
+
+    <TextView
+        android:id="@+id/textSystemLog"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:background="#000000"
+        android:textColor="#00FF00"
+        android:textSize="10sp"
+        android:padding="4dp"
+        android:scrollbars="vertical"
+        android:text="[System Log]"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/layoutEmergency"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#DDFF0000"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        android:elevation="10dp"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="STURZ ERKANNT!"
+            android:textColor="#FFFFFF"
+            android:textSize="30sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/textEmergencyCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Notfall wird in 30 Sekunden ausgelöst."
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:gravity="center" />
+
+        <Button
+            android:id="@+id/buttonCancelEmergency"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="Mir geht es gut"
+            android:backgroundTint="#4CAF50"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/buttonStartEmergencyCall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Notruf sofort starten"
+            android:backgroundTint="#000000"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

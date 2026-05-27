@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId = "com.example.sturzdetektion"
         minSdk = 29
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -23,14 +23,23 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("boolean", "IS_DEBUG", "false")
+        }
+        debug {
+            buildConfigField("boolean", "IS_DEBUG", "true")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    
-    // TFLite Optimierung: Verhindert das Komprimieren der Model-Datei
+
+    buildFeatures {
+        viewBinding = false
+        buildConfig = true
+    }
+
     androidResources {
         noCompress += "tflite"
     }
@@ -42,8 +51,8 @@ dependencies {
     implementation(libs.activity)
     implementation(libs.constraintlayout)
 
-    // LiteRT / TensorFlow Lite Runtime für .tflite Interpreter
-    implementation("com.google.ai.edge.litert:litert:2.1.0")
+    // TensorFlow Lite (LiteRT wurde entfernt, um Konflikte zu vermeiden)
+    implementation(libs.tensorflow.lite)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

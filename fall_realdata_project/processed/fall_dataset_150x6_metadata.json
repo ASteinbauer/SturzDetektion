@@ -1,0 +1,40 @@
+{
+  "window_size": 150,
+  "target_hz": 50,
+  "window_seconds": 3.0,
+  "channels": [
+    "ax",
+    "ay",
+    "az",
+    "gx",
+    "gy",
+    "gz"
+  ],
+  "classes": [
+    "ruhig_alltag",
+    "normale_bewegung",
+    "fallaehnlich_aber_ok",
+    "sturz"
+  ],
+  "input_shape": [
+    1,
+    150,
+    6
+  ],
+  "output_shape": [
+    1,
+    4
+  ],
+  "datasets": [
+    "sisfall",
+    "unimib",
+    "upfall"
+  ],
+  "max_windows_per_class": 10000,
+  "notes": [
+    "SisFall: Acc1 + Gyro genutzt, auf 50 Hz resampled.",
+    "UP-Fall: RightPocket Acc + Gyro genutzt, auf 50 Hz resampled.",
+    "UniMiB: Accelerometer-only, Gyro-Kanaele mit 0 gefuellt.",
+    "Normalisierung wird spaeter im Trainingsskript aus dem Trainingssplit berechnet."
+  ]
+}
