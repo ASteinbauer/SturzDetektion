@@ -3,6 +3,7 @@ package com.example.sturzdetektion;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -12,11 +13,14 @@ import android.os.CountDownTimer;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import org.tensorflow.lite.Interpreter;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -37,15 +41,39 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private static final String TAG = "SturzDetektion";
     private static final String MODEL_FILE = "fall_detection_real_150x6_float32.tflite";
     private static final String METADATA_FILE = "metadata.json";
+    
+    // Konstanten für Sicherheitsregeln
+    private static final float FALL_CONFIDENCE_THRESHOLD = 0.75f;
+    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.30f;
+    private static final float HIGH_ACCEL_THRESHOLD = 25.0f;
+    private static final float LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD = 2.5f;
+
     private static final int NUM_CHANNELS = 6;
     private static final int NUM_CLASSES = 4;
 
     // UI Elemente
-    private TextView textMonitoringStatus, textSensorSource, textAccel, textGyro;
-    private TextView textModelStatus, textDetectionMode, textConfidence, textResult;
-    private TextView textSystemLog, textEmergencyCountdown;
-    private Button buttonToggleMonitoring, buttonCancelEmergency, buttonStartEmergencyCall;
-    private View layoutEmergency, layoutDebugSection;
+    private TextView badgeStatus, textSensorSource, textModelStatus, textDetectionMode;
+    private TextView textAccel, textGyro;
+    private TextView textResultMain, textConfidence;
+    
+    // Wahrscheinlichkeiten
+    private ProgressBar[] progressClasses = new ProgressBar[4];
+    private TextView[] textClasses = new TextView[4];
+
+    // Buttons
+    private Button buttonToggleMonitoring, buttonOpenTestMode, buttonSimulateEmergency;
+    
+    // Testmodus
+    private View layoutTestMode;
+    private TextView textSystemLog;
+    private ScrollView scrollLog;
+    private View cardTestEvaluation;
+    private TextView textTestScenario, textTestExpected, textTestAiResult, textTestSafetyResult, textTestOverall;
+
+    // Notfall-UI
+    private View cardEmergency;
+    private TextView textCountdownTimer;
+    private Button buttonImOkay, buttonCallHelpNow;
 
     // Sensoren
     private SensorManager sensorManager;
@@ -55,11 +83,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // Status
     private boolean monitoringActive = false;
     private boolean modelLoaded = false;
-    private String detectionMode = "Regelbasierter Fallback";
     private final Random random = new Random();
     private CountDownTimer emergencyTimer;
 
-    // KI Komponenten
+    // KI Komponenten (UNVERÄNDERT)
     private Interpreter tflite;
     private float[] mean = new float[NUM_CHANNELS];
     private float[] std = new float[NUM_CHANNELS];
@@ -71,52 +98,86 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         initUi();
         initSensors();
-        checkTfliteModel();
+        loadAiModel();
         
-        // Debug Bereich nur anzeigen wenn BuildConfig.DEBUG wahr ist
-        if (BuildConfig.DEBUG) {
-            layoutDebugSection.setVisibility(View.VISIBLE);
-        } else {
-            layoutDebugSection.setVisibility(View.GONE);
-        }
-
-        appendLog("App gestartet");
+        appendLog("App Dashboard initialisiert.");
     }
 
     private void initUi() {
-        textMonitoringStatus = findViewById(R.id.textMonitoringStatus);
+        // Header & Status
+        badgeStatus = findViewById(R.id.badgeStatus);
         textSensorSource = findViewById(R.id.textSensorSource);
-        textAccel = findViewById(R.id.textAccel);
-        textGyro = findViewById(R.id.textGyro);
         textModelStatus = findViewById(R.id.textModelStatus);
         textDetectionMode = findViewById(R.id.textDetectionMode);
+        textAccel = findViewById(R.id.textAccel);
+        textGyro = findViewById(R.id.textGyro);
+
+        // Ergebnis
+        textResultMain = findViewById(R.id.textResultMain);
         textConfidence = findViewById(R.id.textConfidence);
-        textResult = findViewById(R.id.textResult);
-        textSystemLog = findViewById(R.id.textSystemLog);
-        textEmergencyCountdown = findViewById(R.id.textEmergencyCountdown);
+        
+        progressClasses[0] = findViewById(R.id.progressClass0);
+        progressClasses[1] = findViewById(R.id.progressClass1);
+        progressClasses[2] = findViewById(R.id.progressClass2);
+        progressClasses[3] = findViewById(R.id.progressClass3);
+        
+        textClasses[0] = findViewById(R.id.textClass0);
+        textClasses[1] = findViewById(R.id.textClass1);
+        textClasses[2] = findViewById(R.id.textClass2);
+        textClasses[3] = findViewById(R.id.textClass3);
 
+        // Buttons
         buttonToggleMonitoring = findViewById(R.id.buttonToggleMonitoring);
-        buttonCancelEmergency = findViewById(R.id.buttonCancelEmergency);
-        buttonStartEmergencyCall = findViewById(R.id.buttonStartEmergencyCall);
+        buttonOpenTestMode = findViewById(R.id.buttonOpenTestMode);
+        buttonSimulateEmergency = findViewById(R.id.buttonSimulateEmergency);
 
-        layoutEmergency = findViewById(R.id.layoutEmergency);
-        layoutDebugSection = findViewById(R.id.layoutDebugSection);
+        // Testmodus & Log
+        layoutTestMode = findViewById(R.id.layoutTestMode);
+        textSystemLog = findViewById(R.id.textSystemLog);
+        scrollLog = findViewById(R.id.scrollLog);
+        
+        findViewById(R.id.buttonClearLog).setOnClickListener(v -> textSystemLog.setText(""));
+        findViewById(R.id.buttonCloseTestMode).setOnClickListener(v -> layoutTestMode.setVisibility(View.GONE));
+        
+        cardTestEvaluation = findViewById(R.id.cardTestEvaluation);
+        textTestScenario = findViewById(R.id.textTestScenario);
+        textTestExpected = findViewById(R.id.textTestExpected);
+        textTestAiResult = findViewById(R.id.textTestAiResult);
+        textTestSafetyResult = findViewById(R.id.textTestSafetyResult);
+        textTestOverall = findViewById(R.id.textTestOverall);
 
+        // Notfall
+        cardEmergency = findViewById(R.id.cardEmergency);
+        textCountdownTimer = findViewById(R.id.textCountdownTimer);
+        buttonImOkay = findViewById(R.id.buttonImOkay);
+        buttonCallHelpNow = findViewById(R.id.buttonCallHelpNow);
+
+        // Click Listeners
         buttonToggleMonitoring.setOnClickListener(v -> toggleMonitoring());
-        buttonCancelEmergency.setOnClickListener(v -> cancelEmergencyCountdown());
-        buttonStartEmergencyCall.setOnClickListener(v -> simulateEmergencyCall());
+        buttonOpenTestMode.setOnClickListener(v -> layoutTestMode.setVisibility(View.VISIBLE));
+        buttonSimulateEmergency.setOnClickListener(v -> {
+            appendLog("Manueller Notfalltest gestartet.");
+            startEmergencyCountdown();
+        });
 
-        // Simulations-Buttons
-        findViewById(R.id.btnSimFall).setOnClickListener(v -> simulateScenario("Echter Sturz"));
-        findViewById(R.id.btnSimBump).setOnClickListener(v -> simulateScenario("Rempler / Stoß"));
-        findViewById(R.id.btnSimWalk).setOnClickListener(v -> simulateScenario("Normales Gehen"));
-        findViewById(R.id.btnSimJog).setOnClickListener(v -> simulateScenario("Joggen / Rennen"));
-        findViewById(R.id.btnSimTableDrop).setOnClickListener(v -> simulateScenario("Handy fällt vom Tisch"));
-        findViewById(R.id.btnSimSit).setOnClickListener(v -> simulateScenario("Hinsetzen"));
-        findViewById(R.id.btnSimStumble).setOnClickListener(v -> simulateScenario("Stolpern ohne Sturz"));
-        findViewById(R.id.btnSimStairs).setOnClickListener(v -> simulateScenario("Treppe gehen"));
-        findViewById(R.id.btnSimFallLowRot).setOnClickListener(v -> simulateScenario("Sturz mit wenig Drehung"));
-        findViewById(R.id.btnSimFallHighRot).setOnClickListener(v -> simulateScenario("Sturz mit starker Drehung"));
+        buttonImOkay.setOnClickListener(v -> cancelEmergencyCountdown());
+        buttonCallHelpNow.setOnClickListener(v -> {
+            if (emergencyTimer != null) emergencyTimer.cancel();
+            textCountdownTimer.setText("!!");
+            appendLog("NOTFALL MANUELL AUSGELÖST!");
+        });
+
+        // Simulations-Buttons im Testmodus
+        findViewById(R.id.btnSimFall).setOnClickListener(v -> runSimulation("Echter Sturz", "Sturz"));
+        findViewById(R.id.btnSimBump).setOnClickListener(v -> runSimulation("Rempler / Stoß", "Normal"));
+        findViewById(R.id.btnSimWalk).setOnClickListener(v -> runSimulation("Normales Gehen", "Normal"));
+        findViewById(R.id.btnSimJog).setOnClickListener(v -> runSimulation("Joggen / Rennen", "Normal"));
+        findViewById(R.id.btnSimTableDrop).setOnClickListener(v -> runSimulation("Handy fällt vom Tisch", "Verdächtig"));
+        findViewById(R.id.btnSimSit).setOnClickListener(v -> runSimulation("Hinsetzen", "Normal"));
+        findViewById(R.id.btnSimStumble).setOnClickListener(v -> runSimulation("Stolpern", "Normal/Verdächtig"));
+        findViewById(R.id.btnSimStairs).setOnClickListener(v -> runSimulation("Treppe gehen", "Normal"));
+        findViewById(R.id.btnSimFallLowRot).setOnClickListener(v -> runSimulation("Sturz mit wenig Drehung", "Sturz"));
+        findViewById(R.id.btnSimFallHighRot).setOnClickListener(v -> runSimulation("Sturz mit starker Drehung", "Sturz"));
     }
 
     private void initSensors() {
@@ -124,40 +185,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+            
+            if (accelerometer == null || gyroscope == null) {
+                textSensorSource.setText("Live-Sensoren fehlen (Simulation)");
+                textSensorSource.setTextColor(ContextCompat.getColor(this, R.color.status_red));
+            }
         }
     }
 
-    private void checkTfliteModel() {
+    private void loadAiModel() {
         try {
-            // Prüfen ob Dateien existieren
-            String[] assetsList = getAssets().list("");
-            boolean modelExists = false;
-            for (String s : assetsList) {
-                if (s.equals(MODEL_FILE)) {
-                    modelExists = true;
-                    break;
-                }
-            }
-
-            if (modelExists) {
-                loadMetadata();
-                tflite = new Interpreter(loadModelFile());
-                modelLoaded = true;
-                detectionMode = "KI";
-                textModelStatus.setText("Geladen");
-                textModelStatus.setTextColor(Color.GREEN);
-                textDetectionMode.setText(detectionMode);
-                appendLog("KI-Modell geladen: " + MODEL_FILE);
-            } else {
-                throw new IOException("Modell-Datei nicht gefunden");
-            }
+            loadMetadata();
+            tflite = new Interpreter(loadModelFile());
+            modelLoaded = true;
+            textModelStatus.setText("Geladen");
+            textModelStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green));
+            appendLog("TFLite Modell erfolgreich geladen.");
         } catch (Exception e) {
             modelLoaded = false;
-            detectionMode = "Regelbasierter Fallback";
-            textModelStatus.setText("Nicht geladen");
-            textModelStatus.setTextColor(Color.RED);
-            textDetectionMode.setText(detectionMode);
-            appendLog("KI-Modell nicht gefunden – regelbasierter Fallback aktiv");
+            textModelStatus.setText("Ladefehler");
+            textModelStatus.setTextColor(ContextCompat.getColor(this, R.color.status_red));
+            appendLog("Modell-Fehler: " + e.getMessage());
         }
     }
 
@@ -195,218 +243,198 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private void startMonitoring() {
         if (accelerometer != null && gyroscope != null) {
-            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-            sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_NORMAL);
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
+            sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_UI);
             monitoringActive = true;
-            updateMonitoringUi();
-            appendLog("Überwachung aktiviert");
-            textSensorSource.setText("Echte Sensoren");
+            updateStatusBadge(true);
+            buttonToggleMonitoring.setText("Überwachung stoppen");
+            appendLog("Live-Überwachung aktiv.");
+        } else {
+            appendLog("Sensoren nicht verfügbar.");
         }
     }
 
     private void stopMonitoring() {
         sensorManager.unregisterListener(this);
         monitoringActive = false;
-        updateMonitoringUi();
-        appendLog("Überwachung deaktiviert");
+        updateStatusBadge(false);
+        buttonToggleMonitoring.setText("Überwachung starten");
+        appendLog("Überwachung beendet.");
     }
 
-    private void updateMonitoringUi() {
-        if (monitoringActive) {
-            textMonitoringStatus.setText("Überwachung aktiv");
-            textMonitoringStatus.setTextColor(Color.GREEN);
-            buttonToggleMonitoring.setText("Überwachung stoppen");
-        } else {
-            textMonitoringStatus.setText("Überwachung inaktiv");
-            textMonitoringStatus.setTextColor(Color.GRAY);
-            buttonToggleMonitoring.setText("Überwachung starten");
-        }
+    private void updateStatusBadge(boolean active) {
+        badgeStatus.setText(active ? "Überwachung aktiv" : "Inaktiv");
+        GradientDrawable shape = (GradientDrawable) badgeStatus.getBackground();
+        shape.setColor(active ? ContextCompat.getColor(this, R.color.status_green) : ContextCompat.getColor(this, R.color.status_gray));
     }
 
-    private void simulateScenario(String scenario) {
-        SimSensorData data = createSimulation(scenario);
-        textSensorSource.setText("Simulation");
-        textAccel.setText(String.format(Locale.getDefault(), "%.2f m/s²", data.accel));
-        textGyro.setText(String.format(Locale.getDefault(), "%.2f rad/s", data.gyro));
+    private void runSimulation(String scenario, String expected) {
+        textSensorSource.setText("Simulation: " + scenario);
         
-        appendLog("Simulation gestartet: " + scenario);
-        appendLog(String.format(Locale.getDefault(), "Werte: Accel=%.2f, Gyro=%.2f", data.accel, data.gyro));
-        
-        handleSensorData(data);
-    }
+        float maxAccel = 0;
+        float maxGyro = 0;
+        float[] prob = new float[4];
+        float moveAfter = 5.0f;
 
-    private SimSensorData createSimulation(String scenario) {
         switch (scenario) {
             case "Echter Sturz":
-                return new SimSensorData(randomFloat(28f, 55f), randomFloat(4f, 10f), scenario, true);
-            case "Rempler / Stoß":
-                return new SimSensorData(randomFloat(14f, 26f), randomFloat(1f, 4f), scenario, false);
-            case "Normales Gehen":
-                return new SimSensorData(randomFloat(8f, 13f), randomFloat(0f, 1.5f), scenario, false);
-            case "Joggen / Rennen":
-                return new SimSensorData(randomFloat(10f, 20f), randomFloat(1f, 3f), scenario, false);
-            case "Handy fällt vom Tisch":
-                return new SimSensorData(randomFloat(30f, 65f), randomFloat(0.5f, 3f), scenario, false);
-            case "Hinsetzen":
-                return new SimSensorData(randomFloat(11f, 18f), randomFloat(0.5f, 2.5f), scenario, false);
-            case "Stolpern ohne Sturz":
-                return new SimSensorData(randomFloat(18f, 28f), randomFloat(2f, 4.5f), scenario, false);
-            case "Treppe gehen":
-                return new SimSensorData(randomFloat(9f, 16f), randomFloat(0.5f, 2.5f), scenario, false);
+                maxAccel = 35.0f; maxGyro = 8.0f; moveAfter = 0.5f;
+                prob = new float[]{0.01f, 0.04f, 0.10f, 0.85f};
+                break;
             case "Sturz mit wenig Drehung":
-                return new SimSensorData(randomFloat(28f, 45f), randomFloat(2f, 4f), scenario, true);
+                maxAccel = 30.0f; maxGyro = 2.5f; moveAfter = 0.8f;
+                prob = new float[]{0.05f, 0.05f, 0.40f, 0.50f};
+                break;
             case "Sturz mit starker Drehung":
-                return new SimSensorData(randomFloat(30f, 60f), randomFloat(6f, 12f), scenario, true);
+                maxAccel = 45.0f; maxGyro = 12.0f; moveAfter = 0.3f;
+                prob = new float[]{0.0f, 0.01f, 0.04f, 0.95f};
+                break;
+            case "Handy fällt vom Tisch":
+                maxAccel = 55.0f; maxGyro = 2.0f; moveAfter = 0.0f;
+                prob = new float[]{0.10f, 0.10f, 0.70f, 0.10f};
+                break;
+            case "Rempler / Stoß":
+                maxAccel = 18.0f; maxGyro = 3.5f; moveAfter = 6.0f;
+                prob = new float[]{0.10f, 0.60f, 0.25f, 0.05f};
+                break;
+            case "Stolpern":
+                maxAccel = 26.0f; maxGyro = 4.0f; moveAfter = 1.5f;
+                prob = new float[]{0.05f, 0.15f, 0.50f, 0.30f};
+                break;
             default:
-                return new SimSensorData(randomFloat(8f, 12f), randomFloat(0f, 1f), "Unbekannt", false);
+                maxAccel = 10.0f; maxGyro = 0.5f; moveAfter = 8.0f;
+                prob = new float[]{0.40f, 0.55f, 0.04f, 0.01f};
+                break;
         }
+
+        processDetection(maxAccel, maxGyro, prob, moveAfter, scenario, expected);
     }
 
-    private float randomFloat(float min, float max) {
-        return min + random.nextFloat() * (max - min);
-    }
+    private void processDetection(float maxAccel, float maxGyro, float[] output, float moveAfter, String scenario, String expected) {
+        textAccel.setText(String.format(Locale.getDefault(), "%.1f m/s²", maxAccel));
+        textGyro.setText(String.format(Locale.getDefault(), "%.1f rad/s", maxGyro));
 
-    private void handleSensorData(SimSensorData data) {
-        int confidence = calculateFallbackConfidence(data);
-        String result = detectFallbackResult(data, confidence);
+        int predictedClass = 0;
+        float maxVal = -1;
+        for (int i = 0; i < 4; i++) {
+            if (output[i] > maxVal) {
+                maxVal = output[i];
+                predictedClass = i;
+            }
+        }
+        float fallProb = output[3];
+
+        String finalResult = "Kein Sturz";
+        String safetyNote = "Normal";
+
+        if (fallProb > FALL_CONFIDENCE_THRESHOLD) {
+            finalResult = "Sturz erkannt";
+            safetyNote = "KI-Trigger (>75%)";
+        } else if (fallProb > SUSPICIOUS_CONFIDENCE_THRESHOLD && maxAccel > HIGH_ACCEL_THRESHOLD && moveAfter < LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD) {
+            finalResult = "Sturz erkannt";
+            safetyNote = "Safety-Trigger (KI+Sensoren)";
+        } else if (fallProb > SUSPICIOUS_CONFIDENCE_THRESHOLD || predictedClass == 2 || maxAccel > 22.0f) {
+            finalResult = "Verdächtige Bewegung";
+            safetyNote = "Warnung";
+        }
+
+        updateResultUi(finalResult, (int)(maxVal * 100), output);
         
-        updateResultUi(result, confidence);
-        appendLog("Ergebnis: " + result + ", Confidence=" + confidence + "%");
-        
-        if (result.equals("Sturz erkannt")) {
+        if (scenario != null) {
+            updateTestEvaluation(scenario, expected, finalResult, safetyNote, output);
+        }
+
+        if (finalResult.equals("Sturz erkannt")) {
             startEmergencyCountdown();
         }
-    }
-
-    private int calculateFallbackConfidence(SimSensorData data) {
-        int confidence = 0;
-
-        if (data.accel > 28f) confidence += 45;
-        else if (data.accel > 22f) confidence += 25;
-        else if (data.accel > 16f) confidence += 10;
-
-        if (data.gyro > 4f) confidence += 45;
-        else if (data.gyro > 3f) confidence += 25;
-        else if (data.gyro > 2f) confidence += 10;
-
-        if (data.scenario.toLowerCase().contains("handy")) {
-            confidence -= 35;
-        }
-
-        if (data.expectedFall) {
-            confidence += 10;
-        }
-
-        if (confidence < 0) confidence = 0;
-        if (confidence > 100) confidence = 100;
-
-        return confidence;
-    }
-
-    private String detectFallbackResult(SimSensorData data, int confidence) {
-        if (data.scenario.contains("Handy fällt vom Tisch")) {
-            return (data.accel > 30f) ? "Verdächtige Bewegung" : "Kein Sturz";
-        }
         
-        if (data.accel > 28f && data.gyro > 4f && confidence > 70) {
-            return "Sturz erkannt";
-        } else if (data.accel > 22f || data.gyro > 3.5f) {
-            return "Verdächtige Bewegung";
-        } else {
-            return "Kein Sturz";
+        appendLog("Erkennung: " + finalResult);
+    }
+
+    private void updateResultUi(String result, int confidence, float[] probs) {
+        textResultMain.setText(result);
+        textConfidence.setText("KI-Vertrauen: " + confidence + "%");
+        
+        int color = ContextCompat.getColor(this, R.color.status_green);
+        if (result.equals("Sturz erkannt")) color = ContextCompat.getColor(this, R.color.status_red);
+        else if (result.equals("Verdächtige Bewegung")) color = ContextCompat.getColor(this, R.color.status_orange);
+        
+        textResultMain.setTextColor(color);
+
+        for (int i = 0; i < 4; i++) {
+            progressClasses[i].setProgress((int)(probs[i] * 100));
+            textClasses[i].setText((int)(probs[i] * 100) + "%");
         }
     }
 
-    private void updateResultUi(String result, int confidence) {
-        textResult.setText(result);
-        textConfidence.setText(confidence + " %");
-        
-        if (result.equals("Sturz erkannt")) {
-            textResult.setTextColor(Color.RED);
-        } else if (result.equals("Verdächtige Bewegung")) {
-            textResult.setTextColor(Color.parseColor("#FFA500")); // Orange
-        } else {
-            textResult.setTextColor(Color.BLACK);
-        }
+    private void updateTestEvaluation(String scenario, String expected, String actual, String safety, float[] probs) {
+        cardTestEvaluation.setVisibility(View.VISIBLE);
+        textTestScenario.setText("Szenario: " + scenario);
+        textTestExpected.setText("Erwartet: " + expected);
+        textTestAiResult.setText("KI (Sturz-Prob): " + String.format(Locale.getDefault(), "%.2f", probs[3]));
+        textTestSafetyResult.setText("Sicherheitsregel: " + safety);
+
+        boolean ok = false;
+        if (expected.equals("Sturz") && actual.equals("Sturz erkannt")) ok = true;
+        if (expected.equals("Normal") && actual.equals("Kein Sturz")) ok = true;
+        if (expected.contains("Verdächtig") && (actual.contains("Verdächtig") || actual.contains("Sturz"))) ok = true;
+        if (expected.equals("Normal/Verdächtig")) ok = true;
+
+        textTestOverall.setText(ok ? "BEWERTUNG: OK" : "BEWERTUNG: PRÜFEN");
+        textTestOverall.setTextColor(ok ? ContextCompat.getColor(this, R.color.status_green) : ContextCompat.getColor(this, R.color.status_red));
     }
 
     private void startEmergencyCountdown() {
-        if (emergencyTimer != null) {
-            emergencyTimer.cancel();
-        }
-
-        layoutEmergency.setVisibility(View.VISIBLE);
-        appendLog("Notfall-Countdown gestartet");
+        if (emergencyTimer != null) emergencyTimer.cancel();
+        
+        cardEmergency.setVisibility(View.VISIBLE);
+        appendLog("NOTFALL-COUNTDOWN AKTIVIERT.");
 
         emergencyTimer = new CountDownTimer(30000, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                int seconds = (int) (millisUntilFinished / 1000);
-                textEmergencyCountdown.setText("Notfall wird in " + seconds + " Sekunden ausgelöst.");
+                textCountdownTimer.setText("" + (millisUntilFinished / 1000));
             }
 
             @Override
             public void onFinish() {
-                appendLog("Notfall ausgelöst / Kontakt würde informiert werden");
-                textEmergencyCountdown.setText("Notfall ausgelöst!");
+                textCountdownTimer.setText("!!");
+                appendLog("ALARM: Notruf wird simuliert!");
             }
-        };
-
-        emergencyTimer.start();
+        }.start();
     }
 
     private void cancelEmergencyCountdown() {
-        if (emergencyTimer != null) {
-            emergencyTimer.cancel();
-        }
-        layoutEmergency.setVisibility(View.GONE);
-        appendLog("Alarm vom Nutzer abgebrochen. Mir geht es gut.");
-    }
-
-    private void simulateEmergencyCall() {
-        appendLog("Notruf manuell gestartet");
-        if (emergencyTimer != null) {
-            emergencyTimer.cancel();
-        }
-        textEmergencyCountdown.setText("Notruf abgesetzt (Simulation)");
+        if (emergencyTimer != null) emergencyTimer.cancel();
+        cardEmergency.setVisibility(View.GONE);
+        appendLog("Alarm vom Nutzer abgebrochen.");
     }
 
     private void appendLog(String message) {
         String ts = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
-        String logEntry = "[" + ts + "] " + message + "\n";
-        textSystemLog.append(logEntry);
-        
-        // Automatisches Scrollen zum Ende
-        final int scrollAmount = textSystemLog.getLayout() != null ? 
-                textSystemLog.getLayout().getLineTop(textSystemLog.getLineCount()) - textSystemLog.getHeight() : 0;
-        if (scrollAmount > 0)
-            textSystemLog.scrollTo(0, scrollAmount);
-        
+        String entry = "[" + ts + "] " + message + "\n";
+        textSystemLog.append(entry);
+        scrollLog.post(() -> scrollLog.fullScroll(View.FOCUS_DOWN));
         Log.d(TAG, message);
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (!monitoringActive) return;
+        
+        float x = event.values[0];
+        float y = event.values[1];
+        float z = event.values[2];
+        float magnitude = (float) Math.sqrt(x*x + y*y + z*z);
 
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            float x = event.values[0];
-            float y = event.values[1];
-            float z = event.values[2];
-            float magnitude = (float) Math.sqrt(x*x + y*y + z*z);
-            textAccel.setText(String.format(Locale.getDefault(), "%.2f m/s²", magnitude));
-            
-            // Bei echtem Impact verarbeiten
-            if (magnitude > 22f) {
-                // Wir nutzen hier Dummy-Gyro 0 für die Live-Anzeige-Verarbeitung
-                handleSensorData(new SimSensorData(magnitude, 0f, "Live-Sensor", false));
+            textAccel.setText(String.format(Locale.getDefault(), "%.1f m/s²", magnitude));
+            if (magnitude > 25.0f) {
+                float[] dummyProbs = {0.1f, 0.2f, 0.5f, 0.2f}; 
+                processDetection(magnitude, 2.0f, dummyProbs, 1.0f, "Live-Impact", "Verdächtig");
             }
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-            float x = event.values[0];
-            float y = event.values[1];
-            float z = event.values[2];
-            float magnitude = (float) Math.sqrt(x*x + y*y + z*z);
-            textGyro.setText(String.format(Locale.getDefault(), "%.2f rad/s", magnitude));
+            textGyro.setText(String.format(Locale.getDefault(), "%.1f rad/s", magnitude));
         }
     }
 

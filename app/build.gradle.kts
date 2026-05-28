@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.sturzdetektion"
-        minSdk = 29
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -23,10 +23,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("boolean", "IS_DEBUG", "false")
-        }
-        debug {
-            buildConfigField("boolean", "IS_DEBUG", "true")
         }
     }
 
@@ -36,7 +32,6 @@ android {
     }
 
     buildFeatures {
-        viewBinding = false
         buildConfig = true
     }
 
@@ -51,8 +46,8 @@ dependencies {
     implementation(libs.activity)
     implementation(libs.constraintlayout)
 
-    // TensorFlow Lite (LiteRT wurde entfernt, um Konflikte zu vermeiden)
-    implementation(libs.tensorflow.lite)
+    // LiteRT (TFLite Runtime)
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
