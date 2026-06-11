@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingBottom="32dp">
+        android:paddingBottom="40dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -19,11 +19,11 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <!-- Header Section -->
+            <!-- Modern Header Section -->
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="32dp"
                 android:layout_marginBottom="24dp">
 
                 <LinearLayout
@@ -35,17 +35,18 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:letterSpacing="-0.02"
+                        android:fontFamily="sans-serif-black"
+                        android:letterSpacing="-0.03"
                         android:text="@string/app_name"
                         android:textColor="@color/black"
-                        android:textSize="28sp" />
+                        android:textSize="32sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:alpha="0.7"
                         android:text="@string/app_subtitle"
-                        android:textColor="@color/status_gray"
+                        android:textColor="@color/black"
                         android:textSize="14sp" />
                 </LinearLayout>
 
@@ -56,62 +57,66 @@
                     android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
                     android:background="@drawable/badge_background"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="7dp"
                     android:text="Inaktiv"
                     android:textColor="@color/white"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
             </RelativeLayout>
 
             <!-- Main Actions -->
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonToggleMonitoring"
                 android:layout_width="match_parent"
                 android:layout_height="64dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:text="@string/btn_start_monitoring"
                 android:textAllCaps="false"
-                android:textSize="16sp"
-                app:cornerRadius="16dp" />
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:cornerRadius="20dp"
+                app:elevation="4dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="16dp"
                 android:orientation="horizontal">
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonOpenTestMode"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginEnd="8dp"
                     android:layout_weight="1"
                     android:text="@string/btn_test_mode"
                     android:textAllCaps="false"
-                    app:cornerRadius="12dp" />
+                    app:cornerRadius="16dp" />
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonSimulateEmergency"
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:text="@string/btn_test_countdown"
                     android:textAllCaps="false"
                     android:textColor="@color/accent" />
             </LinearLayout>
 
-            <!-- Emergency Card -->
+            <!-- Emergency Card (Alarm) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardEmergency"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="24dp"
                 android:visibility="gone"
                 app:cardBackgroundColor="@color/status_red"
-                app:cardCornerRadius="24dp"
+                app:cardCornerRadius="28dp"
                 app:cardElevation="12dp">
 
                 <LinearLayout
@@ -119,7 +124,7 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="24dp">
+                    android:padding="28dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -127,47 +132,113 @@
                         android:letterSpacing="0.1"
                         android:text="@string/emergency_title"
                         android:textColor="@color/white"
-                        android:textSize="14sp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/textCountdownTimer"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="8dp"
                         android:fontFamily="sans-serif-black"
                         android:text="30"
                         android:textColor="@color/white"
-                        android:textSize="72sp" />
+                        android:textSize="88sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/emergency_subtitle"
                         android:textColor="@color/status_red_light"
-                        android:textSize="13sp" />
+                        android:textSize="14sp" />
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/buttonImOkay"
                         android:layout_width="match_parent"
-                        android:layout_height="60dp"
-                        android:layout_marginTop="20dp"
+                        android:layout_height="64dp"
+                        android:layout_marginTop="24dp"
                         android:backgroundTint="@color/white"
                         android:text="@string/btn_im_okay"
                         android:textAllCaps="false"
                         android:textColor="@color/status_red"
+                        android:textSize="18sp"
                         android:textStyle="bold"
-                        app:cornerRadius="16dp" />
+                        app:cornerRadius="20dp" />
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/buttonCallHelpNow"
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginTop="12dp"
                         android:text="@string/btn_call_help_now"
                         android:textAllCaps="false"
                         android:textColor="@color/white" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Main Result Card (Prominent) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="6dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <TextView
+                        android:id="@+id/textStatusIcon"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:background="@drawable/status_icon_bg"
+                        android:gravity="center"
+                        android:text="✓"
+                        android:textColor="@color/status_green"
+                        android:textSize="32sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/textResultMain"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:gravity="center"
+                        android:text="@string/status_waiting"
+                        android:textColor="@color/black"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/textConfidence"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:alpha="0.6"
+                        android:text="KI-Vertrauen: 0%"
+                        android:textColor="@color/black"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/textStatusDescription"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:alpha="0.8"
+                        android:gravity="center"
+                        android:text="Die App überwacht Ihre Bewegungen im Hintergrund."
+                        android:textColor="@color/black"
+                        android:textSize="13sp" />
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -175,19 +246,20 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"
+                android:layout_marginTop="32dp"
+                android:layout_marginBottom="12dp"
                 android:letterSpacing="0.1"
                 android:text="@string/label_dashboard"
                 android:textColor="@color/status_gray"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
-            <!-- Status Dashboard -->
+            <!-- Info Dashboard Card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="24dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/divider"
                 app:strokeWidth="1dp">
@@ -222,6 +294,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Simulation"
+                                android:textColor="@color/black"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -253,7 +326,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
-                            android:layout_marginTop="12dp"
+                            android:layout_marginTop="16dp"
                             android:orientation="vertical">
 
                             <TextView
@@ -268,6 +341,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="KI + Sicherheit"
+                                android:textColor="@color/black"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -276,7 +350,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
-                            android:layout_marginTop="12dp"
+                            android:layout_marginTop="16dp"
                             android:orientation="vertical">
 
                             <TextView
@@ -291,6 +365,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Gerade eben"
+                                android:textColor="@color/black"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -299,9 +374,10 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginVertical="16dp"
+                        android:layout_marginVertical="20dp"
                         android:background="@color/divider" />
 
+                    <!-- Live Metrics -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -310,8 +386,11 @@
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:background="@drawable/metric_card_bg"
+                            android:orientation="vertical"
+                            android:padding="12dp">
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -325,16 +404,21 @@
                                 android:id="@+id/textAccel"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:fontFamily="sans-serif-condensed-medium"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif-medium"
                                 android:text="9.8 m/s²"
+                                android:textColor="@color/black"
                                 android:textSize="18sp" />
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:background="@drawable/metric_card_bg"
+                            android:orientation="vertical"
+                            android:padding="12dp">
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -348,23 +432,26 @@
                                 android:id="@+id/textGyro"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:fontFamily="sans-serif-condensed-medium"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif-medium"
                                 android:text="0.1 rad/s"
+                                android:textColor="@color/black"
                                 android:textSize="18sp" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Result Card -->
+            <!-- Probability Bars Card -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardResult"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="20dp"
                 app:cardBackgroundColor="@color/white"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="4dp">
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -375,190 +462,152 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
                         android:letterSpacing="0.1"
-                        android:text="@string/label_result_title"
+                        android:text="@string/label_probabilities"
                         android:textColor="@color/status_gray"
                         android:textSize="11sp"
                         android:textStyle="bold" />
 
-                    <TextView
-                        android:id="@+id/textResultMain"
+                    <!-- Class 0 -->
+                    <RelativeLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="@string/status_waiting"
-                        android:textSize="24sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/textConfidence"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="KI-Vertrauen: 0%"
-                        android:textColor="@color/status_gray"
-                        android:textSize="13sp" />
-
-                    <View
+                        android:layout_height="wrap_content">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/class_0_name"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/textClass0"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:text="0%"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </RelativeLayout>
+                    <ProgressBar
+                        android:id="@+id/progressClass0"
+                        style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginVertical="16dp"
-                        android:background="@color/divider" />
+                        android:layout_height="8dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="16dp"
+                        android:max="100"
+                        android:progressDrawable="@drawable/custom_progress_alltag" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:text="@string/label_probabilities"
-                        android:textColor="@color/status_gray"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <LinearLayout
+                    <!-- Class 1 -->
+                    <RelativeLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:layout_height="wrap_content">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/class_1_name"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/textClass1"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:text="0%"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </RelativeLayout>
+                    <ProgressBar
+                        android:id="@+id/progressClass1"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="8dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="16dp"
+                        android:max="100"
+                        android:progressDrawable="@drawable/custom_progress_normal" />
 
-                        <!-- Class 0 -->
-                        <RelativeLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
+                    <!-- Class 2 -->
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/class_2_name"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/textClass2"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:text="0%"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </RelativeLayout>
+                    <ProgressBar
+                        android:id="@+id/progressClass2"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="8dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="16dp"
+                        android:max="100"
+                        android:progressDrawable="@drawable/custom_progress_verdaechtig" />
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/class_0_name"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/textClass0"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:text="0%"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </RelativeLayout>
-
-                        <ProgressBar
-                            android:id="@+id/progressClass0"
-                            style="?android:attr/progressBarStyleHorizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_marginTop="4dp"
-                            android:layout_marginBottom="12dp"
-                            android:max="100"
-                            android:progressTint="@color/class_alltag" />
-
-                        <!-- Class 1 -->
-                        <RelativeLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/class_1_name"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/textClass1"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:text="0%"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </RelativeLayout>
-
-                        <ProgressBar
-                            android:id="@+id/progressClass1"
-                            style="?android:attr/progressBarStyleHorizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_marginTop="4dp"
-                            android:layout_marginBottom="12dp"
-                            android:max="100"
-                            android:progressTint="@color/class_normal" />
-
-                        <!-- Class 2 -->
-                        <RelativeLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/class_2_name"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/textClass2"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:text="0%"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </RelativeLayout>
-
-                        <ProgressBar
-                            android:id="@+id/progressClass2"
-                            style="?android:attr/progressBarStyleHorizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_marginTop="4dp"
-                            android:layout_marginBottom="12dp"
-                            android:max="100"
-                            android:progressTint="@color/class_verdaechtig" />
-
-                        <!-- Class 3 -->
-                        <RelativeLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/class_3_name"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/textClass3"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:text="0%"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-                        </RelativeLayout>
-
-                        <ProgressBar
-                            android:id="@+id/progressClass3"
-                            style="?android:attr/progressBarStyleHorizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_marginTop="4dp"
-                            android:max="100"
-                            android:progressTint="@color/class_sturz" />
-                    </LinearLayout>
+                    <!-- Class 3 -->
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/class_3_name"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/textClass3"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:text="0%"
+                            android:textColor="@color/black"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </RelativeLayout>
+                    <ProgressBar
+                        android:id="@+id/progressClass3"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="8dp"
+                        android:layout_marginTop="6dp"
+                        android:max="100"
+                        android:progressDrawable="@drawable/custom_progress_sturz" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Test Mode Panel -->
+            <!-- Test Mode Panel (Expendable) -->
             <LinearLayout
                 android:id="@+id/layoutTestMode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="32dp"
                 android:orientation="vertical"
                 android:visibility="gone">
 
                 <View
-                    android:layout_width="60dp"
+                    android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_gravity="center"
-                    android:layout_marginBottom="16dp"
+                    android:layout_marginBottom="24dp"
                     android:background="@color/divider" />
 
                 <TextView
@@ -567,14 +616,24 @@
                     android:letterSpacing="0.1"
                     android:text="@string/test_mode_title"
                     android:textColor="@color/status_gray"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:alpha="0.7"
+                    android:text="Teste typische Alltagssituationen und Sturzszenarien ohne echten Notfall."
+                    android:textColor="@color/black"
+                    android:textSize="13sp" />
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    app:cardCornerRadius="20dp"
+                    android:layout_marginTop="16dp"
+                    app:cardBackgroundColor="@color/white"
+                    app:cardCornerRadius="24dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/divider"
                     app:strokeWidth="1dp">
@@ -590,7 +649,7 @@
                             android:layout_height="wrap_content"
                             android:columnCount="2">
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimFall"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -598,9 +657,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_fall"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimBump"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -608,9 +668,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_bump"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimWalk"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -618,9 +679,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_walk"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimJog"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -628,9 +690,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_jog"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimTableDrop"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -638,9 +701,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_table_drop"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimSit"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -648,9 +712,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_sit"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimStumble"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -658,9 +723,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_stumble"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimStairs"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -668,9 +734,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_stairs"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimFallLowRot"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -678,9 +745,10 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_fall_low_rot"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSimFallHighRot"
                                 style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="0dp"
@@ -688,16 +756,17 @@
                                 android:layout_columnWeight="1"
                                 android:layout_margin="4dp"
                                 android:text="@string/sim_fall_high_rot"
-                                android:textSize="12sp" />
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
                         </GridLayout>
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/buttonCloseTestMode"
                             style="@style/Widget.Material3.Button.TextButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
-                            android:layout_marginTop="8dp"
+                            android:layout_marginTop="12dp"
                             android:text="@string/btn_close_test_mode"
                             android:textColor="@color/status_gray" />
                     </LinearLayout>
@@ -708,16 +777,17 @@
                     android:id="@+id/cardTestEvaluation"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="16dp"
                     android:visibility="gone"
-                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="@color/white"
+                    app:cardCornerRadius="20dp"
                     app:cardElevation="2dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="16dp">
+                        android:padding="20dp">
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -732,8 +802,9 @@
                             android:id="@+id/textTestScenario"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="8dp"
                             android:text="Szenario: -"
+                            android:textColor="@color/black"
                             android:textSize="14sp" />
 
                         <TextView
@@ -741,6 +812,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Erwartet: -"
+                            android:textColor="@color/black"
                             android:textSize="14sp" />
 
                         <TextView
@@ -748,6 +820,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="KI-Ergebnis: -"
+                            android:textColor="@color/black"
                             android:textSize="14sp" />
 
                         <TextView
@@ -755,26 +828,29 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Sicherheit: -"
+                            android:textColor="@color/black"
                             android:textSize="14sp" />
 
                         <TextView
                             android:id="@+id/textTestOverall"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
+                            android:layout_marginTop="16dp"
                             android:text="BEWERTUNG: -"
+                            android:textColor="@color/black"
                             android:textSize="18sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Debug Log Box -->
+                <!-- Debug Log Box (Dark Mode style) -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="16dp"
                     app:cardBackgroundColor="@color/debug_log_bg"
-                    app:cardCornerRadius="16dp">
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="8dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -784,8 +860,8 @@
                         <RelativeLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:paddingHorizontal="16dp"
-                            android:paddingVertical="8dp">
+                            android:paddingHorizontal="20dp"
+                            android:paddingVertical="10dp">
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -796,30 +872,30 @@
                                 android:textSize="10sp"
                                 android:textStyle="bold" />
 
-                            <Button
+                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/buttonClearLog"
                                 style="@style/Widget.Material3.Button.TextButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentEnd="true"
                                 android:text="@string/btn_clear_log"
-                                android:textColor="@color/debug_log_text"
+                                android:textColor="@color/white"
                                 android:textSize="11sp" />
                         </RelativeLayout>
 
                         <ScrollView
                             android:id="@+id/scrollLog"
                             android:layout_width="match_parent"
-                            android:layout_height="180dp"
-                            android:paddingHorizontal="16dp"
-                            android:paddingBottom="16dp">
+                            android:layout_height="220dp"
+                            android:paddingHorizontal="20dp"
+                            android:paddingBottom="20dp">
 
                             <TextView
                                 android:id="@+id/textSystemLog"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:fontFamily="monospace"
-                                android:lineSpacingExtra="2dp"
+                                android:lineSpacingExtra="3dp"
                                 android:text="[System initialisiert]\n"
                                 android:textColor="@color/debug_log_text"
                                 android:textSize="11sp" />

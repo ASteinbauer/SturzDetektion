@@ -43,10 +43,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private static final String METADATA_FILE = "metadata.json";
     
     // Konstanten für Sicherheitsregeln
-    private static final float FALL_CONFIDENCE_THRESHOLD = 0.75f;
-    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.30f;
-    private static final float HIGH_ACCEL_THRESHOLD = 25.0f;
-    private static final float LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD = 2.5f;
+    private static final float FALL_CONFIDENCE_THRESHOLD = 0.90f;
+    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.45f;
+    private static final float HIGH_ACCEL_THRESHOLD = 28.0f;
+    private static final float LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD = 1.8f;
+
+    private static final float CLASS2_OK_THRESHOLD = 0.70f;
+    private static final float CLASS2_WARNING_ACCEL_THRESHOLD = 26.0f;
+    private static final int REQUIRED_FALL_WINDOWS = 2;
+
+    private int consecutiveFallWindows = 0;
 
     private static final int NUM_CHANNELS = 6;
     private static final int NUM_CLASSES = 4;
@@ -66,7 +72,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // UI Elemente
     private TextView badgeStatus, textSensorSource, textModelStatus, textDetectionMode;
     private TextView textAccel, textGyro;
-    private TextView textResultMain, textConfidence;
+    private TextView textResultMain, textConfidence, textStatusIcon, textStatusDescription;
+    private com.google.android.material.card.MaterialCardView cardResult;
     
     // Wahrscheinlichkeiten
     private ProgressBar[] progressClasses = new ProgressBar[4];
@@ -125,8 +132,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         textGyro = findViewById(R.id.textGyro);
 
         // Ergebnis
+        cardResult = findViewById(R.id.cardResult);
         textResultMain = findViewById(R.id.textResultMain);
         textConfidence = findViewById(R.id.textConfidence);
+        textStatusIcon = findViewById(R.id.textStatusIcon);
+        textStatusDescription = findViewById(R.id.textStatusDescription);
         
         progressClasses[0] = findViewById(R.id.progressClass0);
         progressClasses[1] = findViewById(R.id.progressClass1);
@@ -264,6 +274,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             accelReceived = false;
             gyroReceived = false;
             lastInferenceTime = 0;
+            consecutiveFallWindows = 0;
             
             monitoringActive = true;
             updateStatusBadge(true);
@@ -342,21 +353,42 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 predictedClass = i;
             }
         }
+
+        float quietProb = output[0];
+        float normalProb = output[1];
+        float fallLikeOkProb = output[2];
         float fallProb = output[3];
+
+        // Neue Logik: Multi-Window Check & Robuste Entscheidung
+        boolean confirmedFallCandidate = (predictedClass == 3 &&
+                                        fallProb > FALL_CONFIDENCE_THRESHOLD &&
+                                        maxAccel > HIGH_ACCEL_THRESHOLD &&
+                                        moveAfter < LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD);
+
+        if (confirmedFallCandidate) {
+            consecutiveFallWindows++;
+        } else {
+            consecutiveFallWindows = 0;
+        }
 
         String finalResult = "Kein Sturz";
         String safetyNote = "Normal";
 
-        if (fallProb > FALL_CONFIDENCE_THRESHOLD) {
+        if (consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
             finalResult = "Sturz erkannt";
-            safetyNote = "KI-Trigger (>75%)";
-        } else if (fallProb > SUSPICIOUS_CONFIDENCE_THRESHOLD && maxAccel > HIGH_ACCEL_THRESHOLD && moveAfter < LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD) {
-            finalResult = "Sturz erkannt";
-            safetyNote = "Safety-Trigger (KI+Sensoren)";
-        } else if (fallProb > SUSPICIOUS_CONFIDENCE_THRESHOLD || predictedClass == 2 || maxAccel > 22.0f) {
+            safetyNote = "Bestätigter Sturz (" + consecutiveFallWindows + " Fenster)";
+        } else if (predictedClass == 2 && fallLikeOkProb > CLASS2_OK_THRESHOLD && fallProb < SUSPICIOUS_CONFIDENCE_THRESHOLD) {
+            finalResult = "Auffällige Bewegung – kein Sturz";
+            safetyNote = "Klasse 2: sturzähnlich, aber OK";
+        } else if (fallProb > SUSPICIOUS_CONFIDENCE_THRESHOLD || maxAccel > CLASS2_WARNING_ACCEL_THRESHOLD) {
             finalResult = "Verdächtige Bewegung";
-            safetyNote = "Warnung";
+            safetyNote = confirmedFallCandidate ? "Sturzverdacht (Warte auf Bestätigung)" : "Warnung ohne Notfall";
         }
+
+        // Debug-Log für Entscheidung
+        Log.d(TAG, String.format(Locale.getDefault(),
+                "Logic Check: [q=%.3f, n=%.3f, l=%.3f, f=%.3f] class=%d, maxA=%.2f, move=%.2f, consecutive=%d -> %s (%s)",
+                quietProb, normalProb, fallLikeOkProb, fallProb, predictedClass, maxAccel, moveAfter, consecutiveFallWindows, finalResult, safetyNote));
 
         updateResultUi(finalResult, (int)(maxVal * 100), output);
         
@@ -364,11 +396,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             updateTestEvaluation(scenario, expected, finalResult, safetyNote, output);
         }
 
+        // Countdown NUR bei echtem Sturz
         if (finalResult.equals("Sturz erkannt")) {
             startEmergencyCountdown();
         }
         
-        appendLog("Erkennung: " + finalResult);
+        appendLog(String.format(Locale.getDefault(), "Erkennung: %s (Prob: %.2f, MaxA: %.1f)", finalResult, fallProb, maxAccel));
     }
 
     private void updateResultUi(String result, int confidence, float[] probs) {
@@ -376,10 +409,40 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         textConfidence.setText("KI-Vertrauen: " + confidence + "%");
         
         int color = ContextCompat.getColor(this, R.color.status_green);
-        if (result.equals("Sturz erkannt")) color = ContextCompat.getColor(this, R.color.status_red);
-        else if (result.equals("Verdächtige Bewegung")) color = ContextCompat.getColor(this, R.color.status_orange);
+        int bgColor = ContextCompat.getColor(this, R.color.status_green_light);
+        int cardBg = ContextCompat.getColor(this, R.color.white);
+        String icon = "✓";
+        String description = "Die App überwacht Ihre Bewegungen im Hintergrund.";
+
+        if (result.equals("Sturz erkannt")) {
+            color = ContextCompat.getColor(this, R.color.status_red);
+            bgColor = ContextCompat.getColor(this, R.color.status_red_light);
+            cardBg = ContextCompat.getColor(this, R.color.status_red_light);
+            icon = "!!";
+            description = "Ein Sturz wurde erkannt! Bitte reagieren Sie auf den Alarm.";
+        } else if (result.equals("Verdächtige Bewegung")) {
+            color = ContextCompat.getColor(this, R.color.status_orange);
+            bgColor = ContextCompat.getColor(this, R.color.status_orange_light);
+            cardBg = ContextCompat.getColor(this, R.color.white);
+            icon = "!";
+            description = "Eine ungewöhnliche Bewegung wurde bemerkt. Wir beobachten weiter.";
+        } else if (result.equals("Auffällige Bewegung – kein Sturz")) {
+            color = ContextCompat.getColor(this, R.color.status_orange);
+            bgColor = ContextCompat.getColor(this, R.color.status_orange_light);
+            cardBg = ContextCompat.getColor(this, R.color.status_orange_light);
+            icon = "!";
+            description = "Die Bewegung war sturzähnlich, aber die Sicherheitsprüfung sieht keinen Notfall.";
+        }
         
         textResultMain.setTextColor(color);
+        textStatusIcon.setText(icon);
+        textStatusIcon.setTextColor(color);
+        textStatusDescription.setText(description);
+        cardResult.setCardBackgroundColor(cardBg);
+        
+        // Hintergrund der Icon-Pill anpassen
+        GradientDrawable iconShape = (GradientDrawable) textStatusIcon.getBackground();
+        if (iconShape != null) iconShape.setColor(bgColor);
 
         for (int i = 0; i < 4; i++) {
             progressClasses[i].setProgress((int)(probs[i] * 100));

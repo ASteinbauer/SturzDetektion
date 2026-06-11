@@ -52,6 +52,6 @@
     <!-- Classes -->
     <string name="class_0_name">Ruhiger Alltag</string>
     <string name="class_1_name">Normale Bewegung</string>
-    <string name="class_2_name">Verdächtig (Fall-like)</string>
+    <string name="class_2_name">sturzähnlich, aber OK</string>
     <string name="class_3_name">STURZ</string>
 </resources>

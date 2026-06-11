@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
+    <color name="black">#FF0F172A</color>
     <color name="white">#FFFFFFFF</color>
 
     <!-- Modern Indigo Theme -->
-    <color name="primary">#6366F1</color>
+    <color name="primary">#4F46E5</color>
     <color name="primary_light">#EEF2FF</color>
-    <color name="primary_dark">#4338CA</color>
+    <color name="primary_dark">#3730A3</color>
     <color name="accent">#F43F5E</color>
 
     <!-- Semantic Colors -->
     <color name="status_green">#10B981</color>
-    <color name="status_green_light">#D1FAE5</color>
+    <color name="status_green_light">#DCFCE7</color>
     <color name="status_orange">#F59E0B</color>
     <color name="status_orange_light">#FEF3C7</color>
     <color name="status_red">#EF4444</color>
     <color name="status_red_light">#FEE2E2</color>
-    <color name="status_gray">#6B7280</color>
-    <color name="status_gray_light">#F3F4F6</color>
+    <color name="status_gray">#64748B</color>
+    <color name="status_gray_light">#F1F5F9</color>
+    <color name="status_red_dark">#991B1B</color>
 
     <!-- Backgrounds -->
     <color name="window_background">#F8FAFC</color>
@@ -25,12 +26,12 @@
     <color name="divider">#E2E8F0</color>
 
     <!-- Debug Log -->
-    <color name="debug_log_bg">#0F172A</color>
-    <color name="debug_log_text">#34D399</color>
+    <color name="debug_log_bg">#1E293B</color>
+    <color name="debug_log_text">#10B981</color>
 
     <!-- Probability Bar Colors -->
     <color name="class_alltag">#10B981</color>
-    <color name="class_normal">#6366F1</color>
+    <color name="class_normal">#3B82F6</color>
     <color name="class_verdaechtig">#F59E0B</color>
     <color name="class_sturz">#EF4444</color>
 </resources>
