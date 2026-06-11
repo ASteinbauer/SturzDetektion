@@ -386,18 +386,18 @@
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginEnd="8dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
                             android:background="@drawable/metric_card_bg"
                             android:orientation="vertical"
-                            android:padding="12dp">
+                            android:padding="10dp">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/label_accel"
                                 android:textColor="@color/status_gray"
-                                android:textSize="10sp"
+                                android:textSize="9sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -408,24 +408,24 @@
                                 android:fontFamily="sans-serif-medium"
                                 android:text="9.8 m/s²"
                                 android:textColor="@color/black"
-                                android:textSize="18sp" />
+                                android:textSize="14sp" />
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginHorizontal="4dp"
                             android:layout_weight="1"
                             android:background="@drawable/metric_card_bg"
                             android:orientation="vertical"
-                            android:padding="12dp">
+                            android:padding="10dp">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/label_gyro"
                                 android:textColor="@color/status_gray"
-                                android:textSize="10sp"
+                                android:textSize="9sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -436,7 +436,35 @@
                                 android:fontFamily="sans-serif-medium"
                                 android:text="0.1 rad/s"
                                 android:textColor="@color/black"
-                                android:textSize="18sp" />
+                                android:textSize="14sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/metric_card_bg"
+                            android:orientation="vertical"
+                            android:padding="10dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/label_pressure"
+                                android:textColor="@color/status_gray"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/textPressure"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="--- hPa"
+                                android:textColor="@color/black"
+                                android:textSize="14sp" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>

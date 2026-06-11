@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     // UI Elemente
     private TextView badgeStatus, textSensorSource, textModelStatus, textDetectionMode;
-    private TextView textAccel, textGyro;
+    private TextView textAccel, textGyro, textPressure;
     private TextView textResultMain, textConfidence, textStatusIcon, textStatusDescription;
     private com.google.android.material.card.MaterialCardView cardResult;
     
@@ -139,6 +139,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         textDetectionMode = findViewById(R.id.textDetectionMode);
         textAccel = findViewById(R.id.textAccel);
         textGyro = findViewById(R.id.textGyro);
+        textPressure = findViewById(R.id.textPressure);
 
         // Ergebnis
         cardResult = findViewById(R.id.cardResult);
@@ -654,11 +655,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
         String resultText = "Kein Sturz";
-        if (consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) resultText = "Sturz erkannt";
-        else if (aiSaysFall) resultText = "Auffällige Bewegung (" + vetoReason + ")";
-        else if (probs[2] > 0.5f || maxAccel > 25.0f) resultText = "Verdächtige Bewegung";
+        String statusDesc = "Alles im grünen Bereich.";
+        
+        if (consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
+            resultText = "Sturz erkannt";
+            statusDesc = "KI und Physik bestätigen einen Notfall!";
+        } else if (aiSaysFall) {
+            resultText = "Auffällige Bewegung";
+            statusDesc = "KI vermutet Sturz, aber: " + vetoReason;
+        } else if (probs[2] > 0.5f || maxAccel > 25.0f) {
+            resultText = "Verdächtige Bewegung";
+            statusDesc = "Erhöhte Aktivität erkannt.";
+        }
 
         updateResultUi(resultText, (int)(maxProb * 100), probs);
+        textStatusDescription.setText(statusDesc);
         
         if (finalDecision && consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
             startEmergencyCountdown();
@@ -692,6 +703,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         } else if (event.sensor.getType() == Sensor.TYPE_PRESSURE) {
             lastPressure = event.values[0];
             if (startPressure == -1) startPressure = lastPressure;
+            
+            // Update UI
+            runOnUiThread(() -> textPressure.setText(String.format(Locale.getDefault(), "%.1f hPa", lastPressure)));
         }
 
         if (accelReceived && gyroReceived) {

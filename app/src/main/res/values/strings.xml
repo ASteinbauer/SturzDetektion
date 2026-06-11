@@ -11,6 +11,7 @@
     <string name="label_last_activity">Letzte Aktivität</string>
     <string name="label_accel">ACCEL</string>
     <string name="label_gyro">GYRO</string>
+    <string name="label_pressure">BARO</string>
 
     <!-- Detection Results -->
     <string name="label_result_title">ERKENNUNGSERGEBNIS</string>
