@@ -3,51 +3,51 @@ package com.example.sturzdetektion;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-<<<<<<< Updated upstream
-import android.os.VibrationEffect;
-import android.os.Vibrator;
-=======
-import android.os.Handler;
-import android.os.Looper;
->>>>>>> Stashed changes
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+import androidx.core.content.ContextCompat;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.tensorflow.lite.Interpreter;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
-    private static final String TAG = "SturzDetektionDebug";
-    private static final String MODEL_FILE = "fall_detection_model.tflite";
+    private static final String TAG = "SturzDetektion";
+    private static final String MODEL_FILE = "fall_detection_real_150x6_float32.tflite";
+    private static final String METADATA_FILE = "metadata.json";
+    
+    // Konstanten für Sicherheitsregeln
+    private static final float FALL_CONFIDENCE_THRESHOLD = 0.90f;
+    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.45f;
+    private static final float HIGH_ACCEL_THRESHOLD = 28.0f;
+    private static final float LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD = 1.8f;
 
-<<<<<<< Updated upstream
-=======
     private static final float CLASS2_OK_THRESHOLD = 0.70f;
     private static final float CLASS2_WARNING_ACCEL_THRESHOLD = 26.0f;
     private static final int REQUIRED_FALL_WINDOWS = 2;
@@ -57,31 +57,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private static final int NUM_CHANNELS = 6;
     private static final int NUM_CLASSES = 4;
     private static final int WINDOW_SIZE = 150;
-    private static final long SAMPLE_INTERVAL_MS = 20L;
     private static final long INFERENCE_INTERVAL_MS = 400;
 
     // Ringbuffer & Sensor-Daten
     private float[][] sensorWindow = new float[WINDOW_SIZE][NUM_CHANNELS];
     private int windowIndex = 0;
     private int samplesInWindow = 0;
-    private long sampleCount = 0;
     private long lastInferenceTime = 0;
     private float[] latestAccel = new float[3];
     private float[] latestGyro = new float[3];
     private boolean accelReceived = false;
     private boolean gyroReceived = false;
-    private final Handler samplingHandler = new Handler(Looper.getMainLooper());
-    private final Runnable samplingRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (!monitoringActive) return;
-            addTimedSensorSample();
-            samplingHandler.postDelayed(this, SAMPLE_INTERVAL_MS);
-        }
-    };
 
     // UI Elemente
-    private TextView badgeStatus, textSensorSource, textModelStatus, textDetectionMode;
+    private TextView badgeStatus, textSensorSource, textModelStatus, textDetectionMode, textLastActivity;
     private TextView textAccel, textGyro;
     private TextView textResultMain, textConfidence, textStatusIcon, textStatusDescription;
     private com.google.android.material.card.MaterialCardView cardResult;
@@ -106,195 +95,258 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Button buttonImOkay, buttonCallHelpNow;
 
     // Sensoren
->>>>>>> Stashed changes
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private Sensor gyroscope;
 
-    private TextView accelTextView;
-    private TextView gyroTextView;
-    private TextView statusTextView;
-    private TextView countdownTextView;
-    private TextView aiPredictionTextView;
-    private TextView logTextView;
-    
-    private Button startStopButton;
-    private Button cancelButton;
-    private Button simulateFallButton;
-    private Button simulateFalsePositiveButton;
+    // Status
+    private boolean monitoringActive = false;
+    private boolean modelLoaded = false;
+    private final Random random = new Random();
+    private CountDownTimer emergencyTimer;
 
-    private boolean isMonitoring = false;
-    private boolean isAlarmActive = false;
-    private CountDownTimer countDownTimer;
-    
-    // TFLite Interpreter
+    // KI Komponenten (UNVERÄNDERT)
     private Interpreter tflite;
-
-    // Schwellenwerte für Rohdaten-Trigger
-    private static final double FALL_THRESHOLD_ACCEL = 30.0;
-    private static final double FALL_THRESHOLD_GYRO = 5.0;
-
-    private double currentAccelMag = 0;
-    private double currentGyroMag = 0;
+    private float[] mean = new float[NUM_CHANNELS];
+    private float[] std = new float[NUM_CHANNELS];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-        // UI-Elemente initialisieren
-        accelTextView = findViewById(R.id.accelTextView);
-        gyroTextView = findViewById(R.id.gyroTextView);
-        statusTextView = findViewById(R.id.statusTextView);
-        countdownTextView = findViewById(R.id.countdownTextView);
-        aiPredictionTextView = findViewById(R.id.aiPredictionTextView);
-        logTextView = findViewById(R.id.logTextView);
+        initUi();
+        initSensors();
+        loadAiModel();
         
-        startStopButton = findViewById(R.id.startStopButton);
-        cancelButton = findViewById(R.id.cancelButton);
-        simulateFallButton = findViewById(R.id.simulateFallButton);
-        simulateFalsePositiveButton = findViewById(R.id.simulateFalsePositiveButton);
-
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
-
-        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-
-        // Monitoring Steuerung
-        startStopButton.setOnClickListener(v -> {
-            if (isMonitoring) stopMonitoring();
-            else startMonitoring();
-        });
-
-        cancelButton.setOnClickListener(v -> cancelAlarm());
-
-        // Test-Simulationen für Emulator
-        simulateFallButton.setOnClickListener(v -> simulateEvent(35.0, 6.0, true));
-        simulateFalsePositiveButton.setOnClickListener(v -> simulateEvent(32.0, 5.5, false));
-        
-        // KI Initialisierung
-        initTFLite();
-        
-        addLog("App gestartet. KI geladen: " + (tflite != null));
+        appendLog("App Dashboard initialisiert.");
     }
 
-    private void initTFLite() {
+    private void initUi() {
+        // Header & Status
+        badgeStatus = findViewById(R.id.badgeStatus);
+        textSensorSource = findViewById(R.id.textSensorSource);
+        textModelStatus = findViewById(R.id.textModelStatus);
+        textDetectionMode = findViewById(R.id.textDetectionMode);
+        textLastActivity = findViewById(R.id.textLastActivity);
+        textAccel = findViewById(R.id.textAccel);
+        textGyro = findViewById(R.id.textGyro);
+
+        // Ergebnis
+        cardResult = findViewById(R.id.cardResult);
+        textResultMain = findViewById(R.id.textResultMain);
+        textConfidence = findViewById(R.id.textConfidence);
+        textStatusIcon = findViewById(R.id.textStatusIcon);
+        textStatusDescription = findViewById(R.id.textStatusDescription);
+        
+        progressClasses[0] = findViewById(R.id.progressClass0);
+        progressClasses[1] = findViewById(R.id.progressClass1);
+        progressClasses[2] = findViewById(R.id.progressClass2);
+        progressClasses[3] = findViewById(R.id.progressClass3);
+        
+        textClasses[0] = findViewById(R.id.textClass0);
+        textClasses[1] = findViewById(R.id.textClass1);
+        textClasses[2] = findViewById(R.id.textClass2);
+        textClasses[3] = findViewById(R.id.textClass3);
+
+        // Buttons
+        buttonToggleMonitoring = findViewById(R.id.buttonToggleMonitoring);
+        buttonOpenTestMode = findViewById(R.id.buttonOpenTestMode);
+        buttonSimulateEmergency = findViewById(R.id.buttonSimulateEmergency);
+
+        // Testmodus & Log
+        layoutTestMode = findViewById(R.id.layoutTestMode);
+        textSystemLog = findViewById(R.id.textSystemLog);
+        scrollLog = findViewById(R.id.scrollLog);
+        
+        findViewById(R.id.buttonClearLog).setOnClickListener(v -> textSystemLog.setText(""));
+        findViewById(R.id.buttonCloseTestMode).setOnClickListener(v -> layoutTestMode.setVisibility(View.GONE));
+        
+        cardTestEvaluation = findViewById(R.id.cardTestEvaluation);
+        textTestScenario = findViewById(R.id.textTestScenario);
+        textTestExpected = findViewById(R.id.textTestExpected);
+        textTestAiResult = findViewById(R.id.textTestAiResult);
+        textTestSafetyResult = findViewById(R.id.textTestSafetyResult);
+        textTestOverall = findViewById(R.id.textTestOverall);
+
+        // Notfall
+        cardEmergency = findViewById(R.id.cardEmergency);
+        textCountdownTimer = findViewById(R.id.textCountdownTimer);
+        buttonImOkay = findViewById(R.id.buttonImOkay);
+        buttonCallHelpNow = findViewById(R.id.buttonCallHelpNow);
+
+        // Click Listeners
+        buttonToggleMonitoring.setOnClickListener(v -> toggleMonitoring());
+        buttonOpenTestMode.setOnClickListener(v -> layoutTestMode.setVisibility(View.VISIBLE));
+        buttonSimulateEmergency.setOnClickListener(v -> {
+            appendLog("Manueller Notfalltest gestartet.");
+            startEmergencyCountdown();
+        });
+
+        buttonImOkay.setOnClickListener(v -> cancelEmergencyCountdown());
+        buttonCallHelpNow.setOnClickListener(v -> {
+            if (emergencyTimer != null) emergencyTimer.cancel();
+            textCountdownTimer.setText("!!");
+            appendLog("NOTFALL MANUELL AUSGELÖST!");
+        });
+
+        // Simulations-Buttons im Testmodus
+        findViewById(R.id.btnSimFall).setOnClickListener(v -> runSimulation("Echter Sturz", "Sturz"));
+        findViewById(R.id.btnSimBump).setOnClickListener(v -> runSimulation("Rempler / Stoß", "Normal"));
+        findViewById(R.id.btnSimWalk).setOnClickListener(v -> runSimulation("Normales Gehen", "Normal"));
+        findViewById(R.id.btnSimJog).setOnClickListener(v -> runSimulation("Joggen / Rennen", "Normal"));
+        findViewById(R.id.btnSimTableDrop).setOnClickListener(v -> runSimulation("Handy fällt vom Tisch", "Verdächtig"));
+        findViewById(R.id.btnSimSit).setOnClickListener(v -> runSimulation("Hinsetzen", "Normal"));
+        findViewById(R.id.btnSimStumble).setOnClickListener(v -> runSimulation("Stolpern", "Normal/Verdächtig"));
+        findViewById(R.id.btnSimStairs).setOnClickListener(v -> runSimulation("Treppe gehen", "Normal"));
+        findViewById(R.id.btnSimFallLowRot).setOnClickListener(v -> runSimulation("Sturz mit wenig Drehung", "Sturz"));
+        findViewById(R.id.btnSimFallHighRot).setOnClickListener(v -> runSimulation("Sturz mit starker Drehung", "Sturz"));
+    }
+
+    private void initSensors() {
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager != null) {
+            accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+            
+            if (accelerometer == null || gyroscope == null) {
+                textSensorSource.setText("Live-Sensoren fehlen (Simulation)");
+                textSensorSource.setTextColor(ContextCompat.getColor(this, R.color.status_red));
+            }
+        }
+    }
+
+    private void loadAiModel() {
         try {
+            loadMetadata();
             tflite = new Interpreter(loadModelFile());
-            addLog("TFLite Modell erfolgreich geladen.");
+            modelLoaded = true;
+            textModelStatus.setText("Geladen");
+            textModelStatus.setTextColor(ContextCompat.getColor(this, R.color.status_green));
+            appendLog("TFLite Modell erfolgreich geladen.");
         } catch (Exception e) {
-            addLog("TFLite Info: Keine Model-Datei in assets/ gefunden.");
-            Log.i(TAG, "Keine Model-Datei gefunden oder Fehler beim Laden.");
+            modelLoaded = false;
+            textModelStatus.setText("Ladefehler");
+            textModelStatus.setTextColor(ContextCompat.getColor(this, R.color.status_red));
+            appendLog("Modell-Fehler: " + e.getMessage());
+        }
+    }
+
+    private void loadMetadata() throws Exception {
+        String json;
+        try (InputStream is = getAssets().open(METADATA_FILE)) {
+            byte[] buffer = new byte[is.available()];
+            is.read(buffer);
+            json = new String(buffer, StandardCharsets.UTF_8);
+        }
+        JSONObject root = new JSONObject(json);
+        JSONObject norm = root.getJSONObject("normalization");
+        JSONArray mArr = norm.getJSONArray("mean");
+        JSONArray sArr = norm.getJSONArray("std");
+        for (int i = 0; i < NUM_CHANNELS; i++) {
+            mean[i] = (float) mArr.getDouble(i);
+            std[i] = (float) sArr.getDouble(i);
         }
     }
 
     private MappedByteBuffer loadModelFile() throws IOException {
-        AssetFileDescriptor fileDescriptor = this.getAssets().openFd(MODEL_FILE);
-        FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
-        FileChannel fileChannel = inputStream.getChannel();
-        long startOffset = fileDescriptor.getStartOffset();
-        long declaredLength = fileDescriptor.getDeclaredLength();
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+        AssetFileDescriptor fd = getAssets().openFd(MODEL_FILE);
+        FileInputStream fis = new FileInputStream(fd.getFileDescriptor());
+        FileChannel fc = fis.getChannel();
+        return fc.map(FileChannel.MapMode.READ_ONLY, fd.getStartOffset(), fd.getDeclaredLength());
+    }
+
+    private void toggleMonitoring() {
+        if (monitoringActive) {
+            stopMonitoring();
+        } else {
+            startMonitoring();
+        }
     }
 
     private void startMonitoring() {
         if (accelerometer != null && gyroscope != null) {
-<<<<<<< Updated upstream
-            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
-            sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_UI);
-            isMonitoring = true;
-            statusTextView.setText(R.string.status_on);
-            statusTextView.setTextColor(Color.GREEN);
-            startStopButton.setText(R.string.btn_stop);
-            addLog("Überwachung AKTIVIERT.");
-=======
-            sensorManager.registerListener(this, accelerometer, 20000);
-            sensorManager.registerListener(this, gyroscope, 20000);
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+            sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_GAME);
             
             // Buffer zurücksetzen
             windowIndex = 0;
             samplesInWindow = 0;
-            sampleCount = 0;
             accelReceived = false;
             gyroReceived = false;
             lastInferenceTime = 0;
             consecutiveFallWindows = 0;
             
             monitoringActive = true;
-            samplingHandler.removeCallbacks(samplingRunnable);
-            samplingHandler.post(samplingRunnable);
             updateStatusBadge(true);
             buttonToggleMonitoring.setText("Überwachung stoppen");
             appendLog("Live-Überwachung aktiv (50Hz).");
->>>>>>> Stashed changes
         } else {
-            Toast.makeText(this, "Sensoren fehlen - Sim-Modus aktiv", Toast.LENGTH_SHORT).show();
-            isMonitoring = true;
-            statusTextView.setText("Sim-Modus");
-            addLog("Sensoren fehlen. Nur Simulation möglich.");
+            appendLog("Sensoren nicht verfügbar.");
         }
     }
 
     private void stopMonitoring() {
         sensorManager.unregisterListener(this);
-<<<<<<< Updated upstream
-        isMonitoring = false;
-        statusTextView.setText(R.string.status_off);
-        statusTextView.setTextColor(Color.BLACK);
-        startStopButton.setText(R.string.btn_start);
-        if (isAlarmActive) cancelAlarm();
-        addLog("Überwachung GESTOPPT.");
-=======
-        samplingHandler.removeCallbacks(samplingRunnable);
         monitoringActive = false;
         updateStatusBadge(false);
         buttonToggleMonitoring.setText("Überwachung starten");
         appendLog("Überwachung beendet.");
->>>>>>> Stashed changes
     }
 
-    private void simulateEvent(double accel, double gyro, boolean aiShouldConfirm) {
-        if (!isMonitoring) {
-            Toast.makeText(this, "Bitte Überwachung erst starten!", Toast.LENGTH_SHORT).show();
-            return;
+    private void updateStatusBadge(boolean active) {
+        badgeStatus.setText(active ? "Überwachung aktiv" : "Inaktiv");
+        GradientDrawable shape = (GradientDrawable) badgeStatus.getBackground();
+        shape.setColor(active ? ContextCompat.getColor(this, R.color.status_green) : ContextCompat.getColor(this, R.color.status_gray));
+    }
+
+    private void runSimulation(String scenario, String expected) {
+        runOnUiThread(() -> textSensorSource.setText("Simulation: " + scenario));
+        
+        float maxAccel = 0;
+        float maxGyro = 0;
+        float[] prob = new float[4];
+        float moveAfter = 5.0f;
+
+        switch (scenario) {
+            case "Echter Sturz":
+                maxAccel = 35.0f; maxGyro = 8.0f; moveAfter = 0.5f;
+                prob = new float[]{0.01f, 0.04f, 0.10f, 0.85f};
+                break;
+            case "Sturz mit wenig Drehung":
+                maxAccel = 30.0f; maxGyro = 2.5f; moveAfter = 0.8f;
+                prob = new float[]{0.05f, 0.05f, 0.40f, 0.50f};
+                break;
+            case "Sturz mit starker Drehung":
+                maxAccel = 45.0f; maxGyro = 12.0f; moveAfter = 0.3f;
+                prob = new float[]{0.0f, 0.01f, 0.04f, 0.95f};
+                break;
+            case "Handy fällt vom Tisch":
+                maxAccel = 55.0f; maxGyro = 2.0f; moveAfter = 0.0f;
+                prob = new float[]{0.10f, 0.10f, 0.70f, 0.10f};
+                break;
+            case "Rempler / Stoß":
+                maxAccel = 18.0f; maxGyro = 3.5f; moveAfter = 6.0f;
+                prob = new float[]{0.10f, 0.60f, 0.25f, 0.05f};
+                break;
+            case "Stolpern":
+                maxAccel = 26.0f; maxGyro = 4.0f; moveAfter = 1.5f;
+                prob = new float[]{0.05f, 0.15f, 0.50f, 0.30f};
+                break;
+            default:
+                maxAccel = 10.0f; maxGyro = 0.5f; moveAfter = 8.0f;
+                prob = new float[]{0.40f, 0.55f, 0.04f, 0.01f};
+                break;
         }
-        addLog("Simuliere: Accel=" + accel + ", Gyro=" + gyro);
-        currentAccelMag = accel;
-        currentGyroMag = gyro;
-        
-        accelTextView.setText(String.format(Locale.getDefault(), "Sim-Accel: %.2f m/s²", accel));
-        gyroTextView.setText(String.format(Locale.getDefault(), "Sim-Gyro: %.2f rad/s", gyro));
-        
-        // KI-Check direkt aufrufen
-        runLocalAIPrediction(aiShouldConfirm);
+
+        processDetection(maxAccel, maxGyro, prob, moveAfter, scenario, expected);
     }
 
-<<<<<<< Updated upstream
-    private void addLog(String message) {
-        String timeStamp = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
-        logTextView.append("\n[" + timeStamp + "] " + message);
-        Log.d(TAG, message);
-    }
-
-    private void cancelAlarm() {
-        if (countDownTimer != null) countDownTimer.cancel();
-        isAlarmActive = false;
-        countdownTextView.setVisibility(View.GONE);
-        cancelButton.setVisibility(View.GONE);
-        statusTextView.setText(R.string.status_on);
-        statusTextView.setTextColor(Color.GREEN);
-        aiPredictionTextView.setText("KI Status: Standby");
-        addLog("Alarm durch Nutzer ABGEBROCHEN.");
-=======
-    private String processDetection(float maxAccel, float maxGyro, float[] output, float moveAfter, String scenario, String expected) {
-        textAccel.setText(String.format(Locale.getDefault(), "%.1f m/s²", maxAccel));
-        textGyro.setText(String.format(Locale.getDefault(), "%.1f rad/s", maxGyro));
+    private void processDetection(float maxAccel, float maxGyro, float[] output, float moveAfter, String scenario, String expected) {
+        runOnUiThread(() -> {
+            textAccel.setText(String.format(Locale.getDefault(), "%.1f m/s²", maxAccel));
+            textGyro.setText(String.format(Locale.getDefault(), "%.1f rad/s", maxGyro));
+        });
 
         int predictedClass = 0;
         float maxVal = -1;
@@ -341,19 +393,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 "Logic Check: [q=%.3f, n=%.3f, l=%.3f, f=%.3f] class=%d, maxA=%.2f, move=%.2f, consecutive=%d -> %s (%s)",
                 quietProb, normalProb, fallLikeOkProb, fallProb, predictedClass, maxAccel, moveAfter, consecutiveFallWindows, finalResult, safetyNote));
 
-        updateResultUi(finalResult, (int)(maxVal * 100), output);
-        
-        if (scenario != null) {
-            updateTestEvaluation(scenario, expected, finalResult, safetyNote, output);
-        }
+        final String res = finalResult;
+        final String note = safetyNote;
+        final float maxV = maxVal;
 
-        // Countdown NUR bei echtem Sturz
-        if (finalResult.equals("Sturz erkannt")) {
-            startEmergencyCountdown();
-        }
-        
-        appendLog(String.format(Locale.getDefault(), "Erkennung: %s (Prob: %.2f, MaxA: %.1f)", finalResult, fallProb, maxAccel));
-        return finalResult;
+        runOnUiThread(() -> {
+            updateResultUi(res, (int)(maxV * 100), output);
+            if (scenario != null) {
+                updateTestEvaluation(scenario, expected, res, note, output);
+            }
+            if (res.equals("Sturz erkannt")) {
+                startEmergencyCountdown();
+            }
+            appendLog(String.format(Locale.getDefault(), "Erkennung: %s (Prob: %.2f, MaxA: %.1f)", res, fallProb, maxAccel));
+            textLastActivity.setText("Gerade eben");
+        });
     }
 
     private void updateResultUi(String result, int confidence, float[] probs) {
@@ -502,35 +556,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // UI Feedback
         runOnUiThread(() -> textSensorSource.setText("Live-Sensoren"));
 
-        // Debug Log
-        int predictedClass = 0;
-        float maxProb = -1;
-        for (int i = 0; i < NUM_CLASSES; i++) {
-            if (probs[i] > maxProb) {
-                maxProb = probs[i];
-                predictedClass = i;
-            }
-        }
-        
-        String finalResult = processDetection(maxAccel, maxGyro, probs, moveAfter, null, null);
-
-        Log.d(TAG, String.format(Locale.getDefault(),
-                "AI Inference: sampleCount=%d, bufferFilled=%s, maxAccel=%.2f, maxGyro=%.2f, moveAfter=%.2f, " +
-                        "ruhig_alltag=%.4f, normale_bewegung=%.4f, fallaehnlich_aber_ok=%.4f, sturz=%.4f, " +
-                        "predictedClass=%d, confidence=%.4f, consecutiveFallWindows=%d, finalResult=%s",
-                sampleCount,
-                samplesInWindow >= WINDOW_SIZE,
-                maxAccel,
-                maxGyro,
-                moveAfter,
-                probs[0],
-                probs[1],
-                probs[2],
-                probs[3],
-                predictedClass,
-                maxProb,
-                consecutiveFallWindows,
-                finalResult));
+        processDetection(maxAccel, maxGyro, probs, moveAfter, null, null);
     }
 
     private float calculateMovementAfterImpact(float[][] rawWindow, int impactIndex) {
@@ -554,136 +580,50 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return (float) Math.sqrt(sample[0] * sample[0] + sample[1] * sample[1] + sample[2] * sample[2]);
     }
 
-    private float gyroMagnitude(float[] sample) {
-        return (float) Math.sqrt(sample[3] * sample[3] + sample[4] * sample[4] + sample[5] * sample[5]);
-    }
-
-    private void addTimedSensorSample() {
-        if (!accelReceived || !gyroReceived) return;
-
-        sensorWindow[windowIndex][0] = latestAccel[0];
-        sensorWindow[windowIndex][1] = latestAccel[1];
-        sensorWindow[windowIndex][2] = latestAccel[2];
-        sensorWindow[windowIndex][3] = latestGyro[0];
-        sensorWindow[windowIndex][4] = latestGyro[1];
-        sensorWindow[windowIndex][5] = latestGyro[2];
-
-        windowIndex = (windowIndex + 1) % WINDOW_SIZE;
-        if (samplesInWindow < WINDOW_SIZE) samplesInWindow++;
-        sampleCount++;
-
-        long currentTime = System.currentTimeMillis();
-        if (samplesInWindow >= WINDOW_SIZE && (currentTime - lastInferenceTime) >= INFERENCE_INTERVAL_MS) {
-            performLiveInference();
-            lastInferenceTime = currentTime;
-        }
-    }
-
-    private List<String> prepareCurrentWindowCsvRows(String label) {
-        List<String> rows = new ArrayList<>();
-        if (samplesInWindow < WINDOW_SIZE) return rows;
-
-        long now = System.currentTimeMillis();
-        long firstTimestamp = now - (WINDOW_SIZE - 1L) * SAMPLE_INTERVAL_MS;
-        for (int i = 0; i < WINDOW_SIZE; i++) {
-            int actualIndex = (windowIndex + i) % WINDOW_SIZE;
-            long timestamp = firstTimestamp + i * SAMPLE_INTERVAL_MS;
-            rows.add(String.format(Locale.US,
-                    "%d,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f",
-                    timestamp,
-                    label,
-                    sensorWindow[actualIndex][0],
-                    sensorWindow[actualIndex][1],
-                    sensorWindow[actualIndex][2],
-                    sensorWindow[actualIndex][3],
-                    sensorWindow[actualIndex][4],
-                    sensorWindow[actualIndex][5]));
-        }
-        return rows;
->>>>>>> Stashed changes
-    }
-
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (!isMonitoring || isAlarmActive) return;
+        if (!monitoringActive) return;
 
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            currentAccelMag = Math.sqrt(event.values[0]*event.values[0] + 
-                                       event.values[1]*event.values[1] + 
-                                       event.values[2]*event.values[2]);
-            accelTextView.setText(getString(R.string.accel_label, currentAccelMag));
-        } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-            currentGyroMag = Math.sqrt(event.values[0]*event.values[0] + 
-                                      event.values[1]*event.values[1] + 
-                                      event.values[2]*event.values[2]);
-            gyroTextView.setText(getString(R.string.gyro_label, currentGyroMag));
-        }
-<<<<<<< Updated upstream
-
-        // Automatischer Trigger bei echten Sensordaten
-        if (currentAccelMag > FALL_THRESHOLD_ACCEL && currentGyroMag > FALL_THRESHOLD_GYRO) {
-            runLocalAIPrediction(new Random().nextBoolean()); // Zufällige KI Entscheidung bei echten Daten
-        }
-    }
-
-    /**
-     * Lokale KI Logik (Simuliert oder echt via TFLite).
-     */
-    private void runLocalAIPrediction(boolean forceFall) {
-        addLog("KI analysiert Bewegungsmuster...");
-        
-        float probability;
-        
-        if (tflite != null) {
-            // BEISPIEL FÜR ECHTE INFERENZ:
-            // float[][] input = {{ (float)currentAccelMag, (float)currentGyroMag }};
-            // float[][] output = new float[1][1];
-            // tflite.run(input, output);
-            // probability = output[0][0];
+            latestAccel[0] = event.values[0];
+            latestAccel[1] = event.values[1];
+            latestAccel[2] = event.values[2];
+            accelReceived = true;
             
-            // Für die Demo simulieren wir die KI-Entscheidung basierend auf dem Test-Case
-            probability = forceFall ? 0.95f : 0.30f; 
-        } else {
-            // Fallback falls Datei noch nicht in Assets liegt
-            probability = forceFall ? 0.92f : 0.40f;
+            float magnitude = (float) Math.sqrt(latestAccel[0] * latestAccel[0] + latestAccel[1] * latestAccel[1] + latestAccel[2] * latestAccel[2]);
+            runOnUiThread(() -> textAccel.setText(String.format(Locale.getDefault(), "%.1f m/s²", magnitude)));
+        } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+            latestGyro[0] = event.values[0];
+            latestGyro[1] = event.values[1];
+            latestGyro[2] = event.values[2];
+            gyroReceived = true;
+
+            float magnitude = (float) Math.sqrt(latestGyro[0] * latestGyro[0] + latestGyro[1] * latestGyro[1] + latestGyro[2] * latestGyro[2]);
+            runOnUiThread(() -> textGyro.setText(String.format(Locale.getDefault(), "%.1f rad/s", magnitude)));
         }
-        
-        aiPredictionTextView.setText(String.format(Locale.getDefault(), "KI Status: Wahrscheinlichkeit %.1f%%", probability * 100));
 
-        if (probability > 0.85) {
-            addLog("KI BESTÄTIGT: Sturzmuster erkannt.");
-            startFallCountdown();
-        } else {
-            addLog("KI FILTER: Bewegung als 'Alltäglich' eingestuft.");
-            aiPredictionTextView.append(" -> FILTER AKTIV");
+        if (accelReceived && gyroReceived) {
+            // Sample in den Ringbuffer einfügen
+            sensorWindow[windowIndex][0] = latestAccel[0];
+            sensorWindow[windowIndex][1] = latestAccel[1];
+            sensorWindow[windowIndex][2] = latestAccel[2];
+            sensorWindow[windowIndex][3] = latestGyro[0];
+            sensorWindow[windowIndex][4] = latestGyro[1];
+            sensorWindow[windowIndex][5] = latestGyro[2];
+
+            windowIndex = (windowIndex + 1) % WINDOW_SIZE;
+            if (samplesInWindow < WINDOW_SIZE) samplesInWindow++;
+
+            accelReceived = false;
+            gyroReceived = false;
+
+            // Inferenz-Timing prüfen
+            long currentTime = System.currentTimeMillis();
+            if (samplesInWindow >= WINDOW_SIZE && (currentTime - lastInferenceTime) > INFERENCE_INTERVAL_MS) {
+                performLiveInference();
+                lastInferenceTime = currentTime;
+            }
         }
-    }
-
-    private void startFallCountdown() {
-        if (isAlarmActive) return;
-        isAlarmActive = true;
-        
-        statusTextView.setText(R.string.fall_detected);
-        statusTextView.setTextColor(Color.RED);
-        countdownTextView.setVisibility(View.VISIBLE);
-        cancelButton.setVisibility(View.VISIBLE);
-
-        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        if (v != null) v.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
-
-        countDownTimer = new CountDownTimer(10000, 1000) {
-            public void onTick(long millisUntilFinished) {
-                countdownTextView.setText(String.valueOf(millisUntilFinished / 1000));
-            }
-            public void onFinish() {
-                countdownTextView.setText("0");
-                statusTextView.setText(R.string.emergency_call);
-                cancelButton.setVisibility(View.GONE);
-                addLog("CRITICAL: Notruf eingeleitet!");
-            }
-        }.start();
-=======
->>>>>>> Stashed changes
     }
 
     @Override

@@ -1,0 +1,7 @@
+{
+  "normalization": {
+    "mean": [-0.398497, -3.838278, 0.067399, -0.007970, 0.013070, 0.003480],
+    "std": [5.280029, 7.181847, 5.404028, 0.721440, 0.650920, 0.538436]
+  },
+  "note": "Android muss dieselbe Normalisierung verwenden: normalized = (raw - mean[channel]) / std[channel]"
+}

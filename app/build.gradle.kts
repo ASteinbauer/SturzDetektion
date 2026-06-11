@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.example.sturzdetektion"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.sturzdetektion"
-        minSdk = 29
-        targetSdk = 35
+        minSdk = 26
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -41,16 +41,9 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
-<<<<<<< Updated upstream
     
-    // TensorFlow Lite dependencies
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.support)
-=======
-
     // TensorFlow Lite Runtime
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
->>>>>>> Stashed changes
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
