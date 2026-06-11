@@ -46,6 +46,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
+import matplotlib
+matplotlib.use('Agg') # Verhindert GUI-Fehler und Abstürze bei der Diagrammerstellung
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -55,7 +57,8 @@ import tensorflow as tf
 # Konfiguration
 # ---------------------------------------------------------------------
 
-PROJECT_ROOT = Path(r"C:\SturzDetektion\fall_realdata_project")
+# Ermittle den Projekt-Pfad relativ zum Skript-Speicherort
+PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 DATASET_PATH = PROJECT_ROOT / "processed" / "fall_dataset_150x6.npz"
 MODELS_DIR = PROJECT_ROOT / "models"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
@@ -69,11 +72,11 @@ np.random.seed(SEED)
 tf.random.set_seed(SEED)
 
 WINDOW_SIZE = 150
-N_CHANNELS = 6
+N_CHANNELS = 7 # Erhöht von 6 auf 7 (Kanal 7: Gyro Magnitude)
 N_CLASSES = 4
 TARGET_HZ = 50
 
-CHANNEL_NAMES = ["ax", "ay", "az", "gx", "gy", "gz"]
+CHANNEL_NAMES = ["ax", "ay", "az", "gx", "gy", "gz", "gmag"]
 CLASS_NAMES = [
     "ruhig_alltag",
     "normale_bewegung",
@@ -121,10 +124,18 @@ def load_dataset() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         raise FileNotFoundError(f"Dataset nicht gefunden: {DATASET_PATH}")
 
     data = np.load(DATASET_PATH, allow_pickle=True)
-    x = data["x"].astype(np.float32)
+    x_raw = data["x"].astype(np.float32)
     y = data["y"].astype(np.int64)
     subjects = data["subjects"].astype(str)
     datasets = data["datasets"].astype(str)
+
+    # Berechne 7. Kanal: Gyro-Magnitude (Winkelgeschwindigkeit Gesamt)
+    # x_raw hat Shape (Samples, 150, 6) -> gx, gy, gz sind Indizes 3, 4, 5
+    gyro_data = x_raw[:, :, 3:6]
+    g_mag = np.sqrt(np.sum(np.square(gyro_data), axis=2, keepdims=True))
+
+    # Füge den 7. Kanal hinzu
+    x = np.concatenate([x_raw, g_mag], axis=2)
 
     if x.shape[1:] != (WINDOW_SIZE, N_CHANNELS):
         raise ValueError(f"Falsche X-Shape: {x.shape}, erwartet (*, {WINDOW_SIZE}, {N_CHANNELS})")
@@ -240,12 +251,13 @@ def augment_sample_tf(x: tf.Tensor, y: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]
     scales = tf.random.uniform([1, N_CHANNELS], minval=SCALE_MIN, maxval=SCALE_MAX, dtype=tf.float32)
     x = x * scales
 
-    # Gyro-Dropout: gx/gy/gz gelegentlich auf 0 setzen.
+    # Gyro-Dropout: gx/gy/gz und gmag gelegentlich auf 0 setzen.
     r = tf.random.uniform([], 0.0, 1.0)
     def drop_gyro() -> tf.Tensor:
         acc = x[:, 0:3]
-        gyro = tf.zeros_like(x[:, 3:6])
-        return tf.concat([acc, gyro], axis=1)
+        # Kanäle 3, 4, 5 (gyro) und 6 (gmag) auf Null setzen
+        zeros = tf.zeros_like(x[:, 3:7])
+        return tf.concat([acc, zeros], axis=1)
     x = tf.cond(r < GYRO_DROPOUT_PROB, drop_gyro, lambda: x)
 
     # Kleine Zeitverschiebung.

@@ -42,19 +42,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private static final String MODEL_FILE = "fall_detection_real_150x6_float32.tflite";
     private static final String METADATA_FILE = "metadata.json";
     
-    // Konstanten für Sicherheitsregeln
-    private static final float FALL_CONFIDENCE_THRESHOLD = 0.90f;
-    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.45f;
-    private static final float HIGH_ACCEL_THRESHOLD = 28.0f;
-    private static final float LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD = 1.8f;
+    // Konstanten für Sicherheitsregeln (Feingetunt für echten Einsatz)
+    private static final float FALL_CONFIDENCE_THRESHOLD = 0.88f;      // Leicht gesenkt für bessere Erkennung
+    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.40f; // Etwas sensibler für Vor-Warnung
+    private static final float HIGH_ACCEL_THRESHOLD = 34.0f;           // Höherer Puffer gegen Joggen/Rempler
+    private static final float LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD = 2.0f;
 
-    private static final float CLASS2_OK_THRESHOLD = 0.70f;
-    private static final float CLASS2_WARNING_ACCEL_THRESHOLD = 26.0f;
+    private static final float CLASS2_STRICT_THRESHOLD = 0.80f;        // Höhere Hürde für Klasse 2 Warnungen
+    private static final float CLASS2_WARNING_ACCEL_THRESHOLD = 28.0f; 
     private static final int REQUIRED_FALL_WINDOWS = 2;
 
     private int consecutiveFallWindows = 0;
 
-    private static final int NUM_CHANNELS = 6;
+    private static final int NUM_CHANNELS = 7; // Erhöht auf 7 Kanäle
     private static final int NUM_CLASSES = 4;
     private static final int WINDOW_SIZE = 150;
     private static final long INFERENCE_INTERVAL_MS = 400;
@@ -64,6 +64,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private int windowIndex = 0;
     private int samplesInWindow = 0;
     private long lastInferenceTime = 0;
+    private long lastSampleTime = 0; // Neu: Für fixes 50Hz Sampling
+    private static final long SAMPLE_PERIOD_MS = 20; // 50Hz Zielrate
     private float[] latestAccel = new float[3];
     private float[] latestGyro = new float[3];
     private boolean accelReceived = false;
@@ -98,6 +100,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private Sensor gyroscope;
+    private Sensor pressureSensor; // Neu: Barometer
+
+    // Veto-Variablen
+    private float startPressure = -1;
+    private float lastPressure = -1;
+    private float initialTiltAngle = -1;
+    private boolean hasBarometer = false;
 
     // Status
     private boolean monitoringActive = false;
@@ -207,10 +216,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+            pressureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
             
             if (accelerometer == null || gyroscope == null) {
                 textSensorSource.setText("Live-Sensoren fehlen (Simulation)");
                 textSensorSource.setTextColor(ContextCompat.getColor(this, R.color.status_red));
+            }
+
+            if (pressureSensor != null) {
+                hasBarometer = true;
+                appendLog("Barometer erkannt (Höhen-Check aktiv).");
             }
         }
     }
@@ -267,6 +282,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (accelerometer != null && gyroscope != null) {
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
             sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_GAME);
+            if (hasBarometer) {
+                sensorManager.registerListener(this, pressureSensor, SensorManager.SENSOR_DELAY_NORMAL);
+            }
             
             // Buffer zurücksetzen
             windowIndex = 0;
@@ -275,6 +293,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             gyroReceived = false;
             lastInferenceTime = 0;
             consecutiveFallWindows = 0;
+            startPressure = -1;
+            initialTiltAngle = -1;
             
             monitoringActive = true;
             updateStatusBadge(true);
@@ -354,41 +374,60 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         }
 
-        float quietProb = output[0];
-        float normalProb = output[1];
-        float fallLikeOkProb = output[2];
         float fallProb = output[3];
 
-        // Neue Logik: Multi-Window Check & Robuste Entscheidung
-        boolean confirmedFallCandidate = (predictedClass == 3 &&
-                                        fallProb > FALL_CONFIDENCE_THRESHOLD &&
-                                        maxAccel > HIGH_ACCEL_THRESHOLD &&
-                                        moveAfter < LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD);
+        // --- PROF-FILTER (VETO LOGIK) ---
+        
+        // 1. Winkel-Check: Hat sich die Orientierung geändert?
+        boolean orientationChanged = true; // Default true falls kein Initialwert
+        if (initialTiltAngle != -1) {
+            float currentTilt = calculateCurrentTilt();
+            float diff = Math.abs(currentTilt - initialTiltAngle);
+            orientationChanged = (diff > 15.0f); // Mindestens 15 Grad Änderung
+        }
 
+        // 2. Barometer-Check: Gab es einen Höhenunterschied? (Nur wenn Hardware vorhanden)
+        boolean heightConfirmed = true; 
+        if (hasBarometer && startPressure != -1 && lastPressure != -1) {
+            float pressureDiff = lastPressure - startPressure; 
+            // Ein Sturz (1m) erhöht den Druck um ca. 0.12 hPa
+            heightConfirmed = (pressureDiff > 0.05f); 
+        }
+
+        // 3. Inaktivitäts-Check (moveAfter)
+        boolean isLyingStill = (moveAfter < LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD);
+
+        // Kombinierte Entscheidung
+        boolean confirmedFallCandidate = (predictedClass == 3 && fallProb > FALL_CONFIDENCE_THRESHOLD);
+        
+        // Veto-System: KI sagt zwar Sturz, aber die Physik passt nicht
+        boolean vetoTriggered = false;
+        String vetoReason = "";
         if (confirmedFallCandidate) {
+            if (!orientationChanged) { vetoTriggered = true; vetoReason = "Keine Lageänderung"; }
+            else if (!heightConfirmed) { vetoTriggered = true; vetoReason = "Kein Höhenunterschied"; }
+            else if (!isLyingStill) { vetoTriggered = true; vetoReason = "Bewegung nach Aufprall"; }
+        }
+
+        if (confirmedFallCandidate && !vetoTriggered) {
             consecutiveFallWindows++;
         } else {
             consecutiveFallWindows = 0;
         }
 
         String finalResult = "Kein Sturz";
-        String safetyNote = "Normal";
+        String safetyNote = vetoTriggered ? "Veto: " + vetoReason : "Normal";
 
         if (consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
             finalResult = "Sturz erkannt";
-            safetyNote = "Bestätigter Sturz (" + consecutiveFallWindows + " Fenster)";
-        } else if (predictedClass == 2 && fallLikeOkProb > CLASS2_OK_THRESHOLD && fallProb < SUSPICIOUS_CONFIDENCE_THRESHOLD) {
-            finalResult = "Auffällige Bewegung – kein Sturz";
-            safetyNote = "Klasse 2: sturzähnlich, aber OK";
-        } else if (fallProb > SUSPICIOUS_CONFIDENCE_THRESHOLD || maxAccel > CLASS2_WARNING_ACCEL_THRESHOLD) {
+            safetyNote = "Bestätigt durch Physik-Check";
+        } else if (confirmedFallCandidate && vetoTriggered) {
+            finalResult = "Auffällige Bewegung";
+            safetyNote = "KI-Verdacht, aber " + vetoReason;
+        } else if (fallProb > SUSPICIOUS_CONFIDENCE_THRESHOLD) {
             finalResult = "Verdächtige Bewegung";
-            safetyNote = confirmedFallCandidate ? "Sturzverdacht (Warte auf Bestätigung)" : "Warnung ohne Notfall";
+            safetyNote = "KI beobachtet...";
         }
-
-        // Debug-Log für Entscheidung
-        Log.d(TAG, String.format(Locale.getDefault(),
-                "Logic Check: [q=%.3f, n=%.3f, l=%.3f, f=%.3f] class=%d, maxA=%.2f, move=%.2f, consecutive=%d -> %s (%s)",
-                quietProb, normalProb, fallLikeOkProb, fallProb, predictedClass, maxAccel, moveAfter, consecutiveFallWindows, finalResult, safetyNote));
 
         updateResultUi(finalResult, (int)(maxVal * 100), output);
         
@@ -396,12 +435,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             updateTestEvaluation(scenario, expected, finalResult, safetyNote, output);
         }
 
-        // Countdown NUR bei echtem Sturz
         if (finalResult.equals("Sturz erkannt")) {
             startEmergencyCountdown();
         }
         
-        appendLog(String.format(Locale.getDefault(), "Erkennung: %s (Prob: %.2f, MaxA: %.1f)", finalResult, fallProb, maxAccel));
+        appendLog(String.format(Locale.getDefault(), "Check: Res=%s, Veto=%s, TiltOK=%b, PressOK=%b", 
+                finalResult, vetoReason, orientationChanged, heightConfirmed));
+    }
+
+    private float calculateCurrentTilt() {
+        // Berechnet den Neigungswinkel der Z-Achse zur Schwerkraft
+        float ax = latestAccel[0];
+        float ay = latestAccel[1];
+        float az = latestAccel[2];
+        float magnitude = (float) Math.sqrt(ax*ax + ay*ay + az*az);
+        if (magnitude < 0.1f) return 0;
+        return (float) Math.toDegrees(Math.acos(az / magnitude));
     }
 
     private void updateResultUi(String result, int confidence, float[] probs) {
@@ -506,9 +555,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         float[][][] input = new float[1][WINDOW_SIZE][NUM_CHANNELS];
         float maxAccel = 0;
-        float maxGyro = 0;
+        float totalMovementInWindow = 0; // Neu: Um Schütteln zu erkennen
 
-        // Fenster chronologisch aufbauen und max Werte finden
+        // Fenster chronologisch aufbauen
         for (int i = 0; i < WINDOW_SIZE; i++) {
             int actualIndex = (windowIndex + i) % WINDOW_SIZE;
             
@@ -518,57 +567,106 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             float gx = sensorWindow[actualIndex][3];
             float gy = sensorWindow[actualIndex][4];
             float gz = sensorWindow[actualIndex][5];
+            
+            // Berechne den 7. Kanal (Gyro Magnitude) live für die KI
+            float gMag = (float) Math.sqrt(gx*gx + gy*gy + gz*gz);
 
-            // Magnituden für Sicherheitsregeln
             float aMag = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-            float gMag = (float) Math.sqrt(gx * gx + gy * gy + gz * gz);
             if (aMag > maxAccel) maxAccel = aMag;
-            if (gMag > maxGyro) maxGyro = gMag;
+            
+            // Abweichung von der Erdschwerkraft summieren (Bewegungsenergie)
+            totalMovementInWindow += Math.abs(aMag - 9.81f);
 
-            // Normalisierung
             input[0][i][0] = (ax - mean[0]) / std[0];
             input[0][i][1] = (ay - mean[1]) / std[1];
             input[0][i][2] = (az - mean[2]) / std[2];
             input[0][i][3] = (gx - mean[3]) / std[3];
             input[0][i][4] = (gy - mean[4]) / std[4];
             input[0][i][5] = (gz - mean[5]) / std[5];
+            input[0][i][6] = (gMag - mean[6]) / std[6]; // 7. Kanal normalisieren
         }
 
-        // moveAfter Näherung: Durchschnittliche Accelerometer-Abweichung der letzten 25 Samples
+        // Durchschnittliche Bewegung im Fenster (Schüttel-Metrik)
+        float avgMovement = totalMovementInWindow / WINDOW_SIZE;
+
+        // moveAfter: Nur die allerletzten 0.5 Sekunden prüfen (Liegt er danach still?)
         float moveAfter = 0;
-        int count = 25;
-        for (int i = WINDOW_SIZE - count; i < WINDOW_SIZE; i++) {
+        int lastSamples = 25; 
+        for (int i = WINDOW_SIZE - lastSamples; i < WINDOW_SIZE; i++) {
             int actualIndex = (windowIndex + i) % WINDOW_SIZE;
             float ax = sensorWindow[actualIndex][0];
             float ay = sensorWindow[actualIndex][1];
             float az = sensorWindow[actualIndex][2];
-            float aMag = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-            moveAfter += Math.abs(aMag - 9.81f);
+            moveAfter += Math.abs((float)Math.sqrt(ax*ax + ay*ay + az*az) - 9.81f);
         }
-        moveAfter /= count;
+        moveAfter /= lastSamples;
+
+        // Orientierung am Anfang vs Ende des Fensters
+        float tiltStart = calculateTiltAtIndex(windowIndex);
+        float tiltEnd = calculateTiltAtIndex((windowIndex + WINDOW_SIZE - 1) % WINDOW_SIZE);
+        float tiltDiff = Math.abs(tiltEnd - tiltStart);
 
         // TFLite Inferenz
         float[][] output = new float[1][NUM_CLASSES];
         tflite.run(input, output);
-        float[] probs = output[0];
+        
+        processAdvancedDetection(maxAccel, avgMovement, moveAfter, tiltDiff, output[0]);
+    }
 
-        // UI Feedback
-        runOnUiThread(() -> textSensorSource.setText("Live-Sensoren"));
+    private float calculateTiltAtIndex(int index) {
+        float ax = sensorWindow[index][0];
+        float ay = sensorWindow[index][1];
+        float az = sensorWindow[index][2];
+        float mag = (float) Math.sqrt(ax*ax + ay*ay + az*az);
+        if (mag < 0.1f) return 0;
+        return (float) Math.toDegrees(Math.acos(az / mag));
+    }
 
-        // Debug Log
+    private void processAdvancedDetection(float maxAccel, float avgMovement, float moveAfter, float tiltDiff, float[] probs) {
+        float fallProb = probs[3];
         int predictedClass = 0;
         float maxProb = -1;
-        for (int i = 0; i < NUM_CLASSES; i++) {
-            if (probs[i] > maxProb) {
-                maxProb = probs[i];
-                predictedClass = i;
-            }
-        }
-        
-        Log.d(TAG, String.format("Inference (Samples=%d): maxA=%.2f, maxG=%.2f, move=%.2f, probs=[%.2f, %.2f, %.2f, %.2f], class=%d, conf=%d%%",
-                samplesInWindow, maxAccel, maxGyro, moveAfter, probs[0], probs[1], probs[2], probs[3], predictedClass, (int)(maxProb * 100)));
+        for(int i=0; i<4; i++) { if(probs[i] > maxProb) { maxProb = probs[i]; predictedClass = i; } }
 
-        processDetection(maxAccel, maxGyro, probs, moveAfter, null, null);
+        // --- EXPERTEN-LOGIK GEGEN SCHÜTTELN ---
+        
+        boolean isShaking = (avgMovement > 8.0f); // Viel Bewegung im gesamten 3s Fenster
+        boolean hasImpact = (maxAccel > HIGH_ACCEL_THRESHOLD);
+        boolean hasOrientationChange = (tiltDiff > 20.0f); // Handy muss sich gedreht haben
+        boolean isLyingStill = (moveAfter < LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD);
+        
+        boolean aiSaysFall = (fallProb > FALL_CONFIDENCE_THRESHOLD);
+        
+        String vetoReason = "";
+        if (aiSaysFall) {
+            if (isShaking) vetoReason = "Schütteln erkannt";
+            else if (!hasImpact) vetoReason = "Zu schwacher Stoß";
+            else if (!hasOrientationChange) vetoReason = "Lage stabil";
+            else if (!isLyingStill) vetoReason = "Keine Ruhe nach Stoß";
+        }
+
+        boolean finalDecision = aiSaysFall && vetoReason.isEmpty();
+        
+        if (finalDecision) {
+            consecutiveFallWindows++;
+        } else {
+            consecutiveFallWindows = 0;
+        }
+
+        String resultText = "Kein Sturz";
+        if (consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) resultText = "Sturz erkannt";
+        else if (aiSaysFall) resultText = "Auffällige Bewegung (" + vetoReason + ")";
+        else if (probs[2] > 0.5f || maxAccel > 25.0f) resultText = "Verdächtige Bewegung";
+
+        updateResultUi(resultText, (int)(maxProb * 100), probs);
+        
+        if (finalDecision && consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
+            startEmergencyCountdown();
+        }
+
+        Log.d(TAG, String.format("Advanced: AI=%.2f, Shaking=%.1f, Tilt=%.1f, Impact=%.1f, Result=%s", 
+                fallProb, avgMovement, tiltDiff, maxAccel, resultText));
+        appendLog(String.format("KI: %.1f%% | %s", fallProb*100, resultText));
     }
 
     @Override
@@ -591,29 +689,41 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             float magnitude = (float) Math.sqrt(latestGyro[0] * latestGyro[0] + latestGyro[1] * latestGyro[1] + latestGyro[2] * latestGyro[2]);
             textGyro.setText(String.format(Locale.getDefault(), "%.1f rad/s", magnitude));
+        } else if (event.sensor.getType() == Sensor.TYPE_PRESSURE) {
+            lastPressure = event.values[0];
+            if (startPressure == -1) startPressure = lastPressure;
         }
 
         if (accelReceived && gyroReceived) {
-            // Sample in den Ringbuffer einfügen
-            sensorWindow[windowIndex][0] = latestAccel[0];
-            sensorWindow[windowIndex][1] = latestAccel[1];
-            sensorWindow[windowIndex][2] = latestAccel[2];
-            sensorWindow[windowIndex][3] = latestGyro[0];
-            sensorWindow[windowIndex][4] = latestGyro[1];
-            sensorWindow[windowIndex][5] = latestGyro[2];
+            long currentTime = System.currentTimeMillis();
 
-            windowIndex = (windowIndex + 1) % WINDOW_SIZE;
-            if (samplesInWindow < WINDOW_SIZE) samplesInWindow++;
+            // Fixes 50Hz Sampling: Nur alle 20ms ein Sample in den Puffer aufnehmen
+            if (currentTime - lastSampleTime >= SAMPLE_PERIOD_MS) {
+                lastSampleTime = currentTime;
+                
+                // Initialen Winkel für Veto-Check speichern
+                if (initialTiltAngle == -1) initialTiltAngle = calculateCurrentTilt();
+
+                // Sample in den Ringbuffer einfügen
+                sensorWindow[windowIndex][0] = latestAccel[0];
+                sensorWindow[windowIndex][1] = latestAccel[1];
+                sensorWindow[windowIndex][2] = latestAccel[2];
+                sensorWindow[windowIndex][3] = latestGyro[0];
+                sensorWindow[windowIndex][4] = latestGyro[1];
+                sensorWindow[windowIndex][5] = latestGyro[2];
+
+                windowIndex = (windowIndex + 1) % WINDOW_SIZE;
+                if (samplesInWindow < WINDOW_SIZE) samplesInWindow++;
+
+                // Inferenz-Timing prüfen
+                if (samplesInWindow >= WINDOW_SIZE && (currentTime - lastInferenceTime) > INFERENCE_INTERVAL_MS) {
+                    performLiveInference();
+                    lastInferenceTime = currentTime;
+                }
+            }
 
             accelReceived = false;
             gyroReceived = false;
-
-            // Inferenz-Timing prüfen
-            long currentTime = System.currentTimeMillis();
-            if (samplesInWindow >= WINDOW_SIZE && (currentTime - lastInferenceTime) > INFERENCE_INTERVAL_MS) {
-                performLiveInference();
-                lastInferenceTime = currentTime;
-            }
         }
     }
 

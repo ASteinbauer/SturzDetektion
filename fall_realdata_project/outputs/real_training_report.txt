@@ -1,10 +1,10 @@
 Train Real Fall Detection 1D-CNN 150x6
 ============================================================
-TensorFlow: 2.12.0-rc0
-Dataset: C:\SturzDetektion\fall_realdata_project\processed\fall_dataset_150x6.npz
+TensorFlow: 2.21.0
+Dataset: /home/kryex/StudioProjects/SturzDetektion/fall_realdata_project/processed/fall_dataset_150x6.npz
 
 Geladen:
-  X: (35749, 150, 6)
+  X: (35749, 150, 7)
   y: (35749,)
   subjects: (35749,)
   datasets: (35749,)
@@ -58,61 +58,58 @@ Normalisierung:
   gx: mean=-0.007970, std=0.721440
   gy: mean=0.013070, std=0.650920
   gz: mean=0.003480, std=0.538436
-Model: "model"
-_________________________________________________________________
- Layer (type)                Output Shape              Param #   
-=================================================================
- sensor_window (InputLayer)  [(None, 150, 6)]          0         
-                                                                 
- conv1d (Conv1D)             (None, 150, 32)           1376      
-                                                                 
- batch_normalization (BatchN  (None, 150, 32)          128       
- ormalization)                                                   
-                                                                 
- max_pooling1d (MaxPooling1D  (None, 75, 32)           0         
- )                                                               
-                                                                 
- dropout (Dropout)           (None, 75, 32)            0         
-                                                                 
- conv1d_1 (Conv1D)           (None, 75, 64)            10304     
-                                                                 
- batch_normalization_1 (Batc  (None, 75, 64)           256       
- hNormalization)                                                 
-                                                                 
- max_pooling1d_1 (MaxPooling  (None, 37, 64)           0         
- 1D)                                                             
-                                                                 
- dropout_1 (Dropout)         (None, 37, 64)            0         
-                                                                 
- conv1d_2 (Conv1D)           (None, 37, 128)           24704     
-                                                                 
- batch_normalization_2 (Batc  (None, 37, 128)          512       
- hNormalization)                                                 
-                                                                 
- max_pooling1d_2 (MaxPooling  (None, 18, 128)          0         
- 1D)                                                             
-                                                                 
- dropout_2 (Dropout)         (None, 18, 128)           0         
-                                                                 
- conv1d_3 (Conv1D)           (None, 18, 128)           49280     
-                                                                 
- batch_normalization_3 (Batc  (None, 18, 128)          512       
- hNormalization)                                                 
-                                                                 
- global_average_pooling1d (G  (None, 128)              0         
- lobalAveragePooling1D)                                          
-                                                                 
- dense (Dense)               (None, 96)                12384     
-                                                                 
- dropout_3 (Dropout)         (None, 96)                0         
-                                                                 
- class_probabilities (Dense)  (None, 4)                388       
-                                                                 
-=================================================================
-Total params: 99,844
-Trainable params: 99,140
-Non-trainable params: 704
-_________________________________________________________________
+  gmag: mean=0.548270, std=0.961524
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ sensor_window (InputLayer)           │ (None, 150, 7)              │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ conv1d (Conv1D)                      │ (None, 150, 32)             │           1,600 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ batch_normalization                  │ (None, 150, 32)             │             128 │
+│ (BatchNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ max_pooling1d (MaxPooling1D)         │ (None, 75, 32)              │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout (Dropout)                    │ (None, 75, 32)              │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ conv1d_1 (Conv1D)                    │ (None, 75, 64)              │          10,304 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ batch_normalization_1                │ (None, 75, 64)              │             256 │
+│ (BatchNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ max_pooling1d_1 (MaxPooling1D)       │ (None, 37, 64)              │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout_1 (Dropout)                  │ (None, 37, 64)              │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ conv1d_2 (Conv1D)                    │ (None, 37, 128)             │          24,704 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ batch_normalization_2                │ (None, 37, 128)             │             512 │
+│ (BatchNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ max_pooling1d_2 (MaxPooling1D)       │ (None, 18, 128)             │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout_2 (Dropout)                  │ (None, 18, 128)             │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ conv1d_3 (Conv1D)                    │ (None, 18, 128)             │          49,280 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ batch_normalization_3                │ (None, 18, 128)             │             512 │
+│ (BatchNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ global_average_pooling1d             │ (None, 128)                 │               0 │
+│ (GlobalAveragePooling1D)             │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense (Dense)                        │ (None, 96)                  │          12,384 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout_3 (Dropout)                  │ (None, 96)                  │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ class_probabilities (Dense)          │ (None, 4)                   │             388 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+ Total params: 100,068 (390.89 KB)
+ Trainable params: 99,364 (388.14 KB)
+ Non-trainable params: 704 (2.75 KB)
+
 
 Class Weights:
   0 ruhig_alltag          : 1.3466
@@ -120,34 +117,34 @@ Class Weights:
   2 fallaehnlich_aber_ok  : 0.9538
   3 sturz                 : 0.9111
 
-Test Loss: 0.2003
-Test Accuracy: 0.9387
+Test Loss: 0.2196
+Test Accuracy: 0.9372
 
 Confusion Matrix:
 [[ 684    0    0    0]
- [  75 1040   61    0]
- [  52   23 1471    9]
- [  43    5   18 1181]]
+ [  73 1092   11    0]
+ [  81   43 1424    7]
+ [  47    5   26 1169]]
 
 Klassenauswertung:
-  ruhig_alltag           precision=0.801 recall=1.000 f1=0.889 support=684
-  normale_bewegung       precision=0.974 recall=0.884 f1=0.927 support=1176
-  fallaehnlich_aber_ok   precision=0.949 recall=0.946 f1=0.948 support=1555
-  sturz                  precision=0.992 recall=0.947 f1=0.969 support=1247
+  ruhig_alltag           precision=0.773 recall=1.000 f1=0.872 support=684
+  normale_bewegung       precision=0.958 recall=0.929 f1=0.943 support=1176
+  fallaehnlich_aber_ok   precision=0.975 recall=0.916 f1=0.944 support=1555
+  sturz                  precision=0.994 recall=0.937 f1=0.965 support=1247
 
-Keras Modell gespeichert: C:\SturzDetektion\fall_realdata_project\models\fall_detection_real_150x6.keras
+Keras Modell gespeichert: /home/kryex/StudioProjects/SturzDetektion/fall_realdata_project/models/fall_detection_real_150x6.keras
 
 TFLite exportiert:
-  C:\SturzDetektion\fall_realdata_project\models\fall_detection_real_150x6_float32.tflite
-  C:\SturzDetektion\fall_realdata_project\models\fall_detection_real_150x6_dynamic_quant.tflite
-Metadata gespeichert: C:\SturzDetektion\fall_realdata_project\models\metadata.json
+  /home/kryex/StudioProjects/SturzDetektion/fall_realdata_project/models/fall_detection_real_150x6_float32.tflite
+  /home/kryex/StudioProjects/SturzDetektion/fall_realdata_project/models/fall_detection_real_150x6_dynamic_quant.tflite
+Metadata gespeichert: /home/kryex/StudioProjects/SturzDetektion/fall_realdata_project/models/metadata.json
 
 Beispielvorhersagen:
   true=normale_bewegung       pred=normale_bewegung       richtig=True | ruhig_alltag=0.000, normale_bewegung=1.000, fallaehnlich_aber_ok=0.000, sturz=0.000
-  true=fallaehnlich_aber_ok   pred=fallaehnlich_aber_ok   richtig=True | ruhig_alltag=0.000, normale_bewegung=0.000, fallaehnlich_aber_ok=1.000, sturz=0.000
-  true=sturz                  pred=fallaehnlich_aber_ok   richtig=False | ruhig_alltag=0.000, normale_bewegung=0.003, fallaehnlich_aber_ok=0.692, sturz=0.305
-  true=ruhig_alltag           pred=ruhig_alltag           richtig=True | ruhig_alltag=0.862, normale_bewegung=0.087, fallaehnlich_aber_ok=0.020, sturz=0.031
+  true=fallaehnlich_aber_ok   pred=fallaehnlich_aber_ok   richtig=True | ruhig_alltag=0.000, normale_bewegung=0.004, fallaehnlich_aber_ok=0.996, sturz=0.000
+  true=sturz                  pred=fallaehnlich_aber_ok   richtig=False | ruhig_alltag=0.000, normale_bewegung=0.299, fallaehnlich_aber_ok=0.647, sturz=0.054
+  true=ruhig_alltag           pred=ruhig_alltag           richtig=True | ruhig_alltag=0.878, normale_bewegung=0.056, fallaehnlich_aber_ok=0.049, sturz=0.017
   true=sturz                  pred=sturz                  richtig=True | ruhig_alltag=0.000, normale_bewegung=0.000, fallaehnlich_aber_ok=0.000, sturz=1.000
 
 Fertig.
-Report: C:\SturzDetektion\fall_realdata_project\outputs\real_training_report.txt
+Report: /home/kryex/StudioProjects/SturzDetektion/fall_realdata_project/outputs/real_training_report.txt
