@@ -50,6 +50,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private static final int NUM_CHANNELS = 6;
     private static final int NUM_CLASSES = 4;
+    private static final int WINDOW_SIZE = 150;
+    private static final long INFERENCE_INTERVAL_MS = 400;
+
+    // Ringbuffer & Sensor-Daten
+    private float[][] sensorWindow = new float[WINDOW_SIZE][NUM_CHANNELS];
+    private int windowIndex = 0;
+    private int samplesInWindow = 0;
+    private long lastInferenceTime = 0;
+    private float[] latestAccel = new float[3];
+    private float[] latestGyro = new float[3];
+    private boolean accelReceived = false;
+    private boolean gyroReceived = false;
 
     // UI Elemente
     private TextView badgeStatus, textSensorSource, textModelStatus, textDetectionMode;
@@ -243,12 +255,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private void startMonitoring() {
         if (accelerometer != null && gyroscope != null) {
-            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
-            sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_UI);
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+            sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_GAME);
+            
+            // Buffer zurücksetzen
+            windowIndex = 0;
+            samplesInWindow = 0;
+            accelReceived = false;
+            gyroReceived = false;
+            lastInferenceTime = 0;
+            
             monitoringActive = true;
             updateStatusBadge(true);
             buttonToggleMonitoring.setText("Überwachung stoppen");
-            appendLog("Live-Überwachung aktiv.");
+            appendLog("Live-Überwachung aktiv (50Hz).");
         } else {
             appendLog("Sensoren nicht verfügbar.");
         }
@@ -418,23 +438,119 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Log.d(TAG, message);
     }
 
+    private void performLiveInference() {
+        if (!modelLoaded || tflite == null) return;
+
+        float[][][] input = new float[1][WINDOW_SIZE][NUM_CHANNELS];
+        float maxAccel = 0;
+        float maxGyro = 0;
+
+        // Fenster chronologisch aufbauen und max Werte finden
+        for (int i = 0; i < WINDOW_SIZE; i++) {
+            int actualIndex = (windowIndex + i) % WINDOW_SIZE;
+            
+            float ax = sensorWindow[actualIndex][0];
+            float ay = sensorWindow[actualIndex][1];
+            float az = sensorWindow[actualIndex][2];
+            float gx = sensorWindow[actualIndex][3];
+            float gy = sensorWindow[actualIndex][4];
+            float gz = sensorWindow[actualIndex][5];
+
+            // Magnituden für Sicherheitsregeln
+            float aMag = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+            float gMag = (float) Math.sqrt(gx * gx + gy * gy + gz * gz);
+            if (aMag > maxAccel) maxAccel = aMag;
+            if (gMag > maxGyro) maxGyro = gMag;
+
+            // Normalisierung
+            input[0][i][0] = (ax - mean[0]) / std[0];
+            input[0][i][1] = (ay - mean[1]) / std[1];
+            input[0][i][2] = (az - mean[2]) / std[2];
+            input[0][i][3] = (gx - mean[3]) / std[3];
+            input[0][i][4] = (gy - mean[4]) / std[4];
+            input[0][i][5] = (gz - mean[5]) / std[5];
+        }
+
+        // moveAfter Näherung: Durchschnittliche Accelerometer-Abweichung der letzten 25 Samples
+        float moveAfter = 0;
+        int count = 25;
+        for (int i = WINDOW_SIZE - count; i < WINDOW_SIZE; i++) {
+            int actualIndex = (windowIndex + i) % WINDOW_SIZE;
+            float ax = sensorWindow[actualIndex][0];
+            float ay = sensorWindow[actualIndex][1];
+            float az = sensorWindow[actualIndex][2];
+            float aMag = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+            moveAfter += Math.abs(aMag - 9.81f);
+        }
+        moveAfter /= count;
+
+        // TFLite Inferenz
+        float[][] output = new float[1][NUM_CLASSES];
+        tflite.run(input, output);
+        float[] probs = output[0];
+
+        // UI Feedback
+        runOnUiThread(() -> textSensorSource.setText("Live-Sensoren"));
+
+        // Debug Log
+        int predictedClass = 0;
+        float maxProb = -1;
+        for (int i = 0; i < NUM_CLASSES; i++) {
+            if (probs[i] > maxProb) {
+                maxProb = probs[i];
+                predictedClass = i;
+            }
+        }
+        
+        Log.d(TAG, String.format("Inference (Samples=%d): maxA=%.2f, maxG=%.2f, move=%.2f, probs=[%.2f, %.2f, %.2f, %.2f], class=%d, conf=%d%%",
+                samplesInWindow, maxAccel, maxGyro, moveAfter, probs[0], probs[1], probs[2], probs[3], predictedClass, (int)(maxProb * 100)));
+
+        processDetection(maxAccel, maxGyro, probs, moveAfter, null, null);
+    }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (!monitoringActive) return;
-        
-        float x = event.values[0];
-        float y = event.values[1];
-        float z = event.values[2];
-        float magnitude = (float) Math.sqrt(x*x + y*y + z*z);
 
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            latestAccel[0] = event.values[0];
+            latestAccel[1] = event.values[1];
+            latestAccel[2] = event.values[2];
+            accelReceived = true;
+            
+            float magnitude = (float) Math.sqrt(latestAccel[0] * latestAccel[0] + latestAccel[1] * latestAccel[1] + latestAccel[2] * latestAccel[2]);
             textAccel.setText(String.format(Locale.getDefault(), "%.1f m/s²", magnitude));
-            if (magnitude > 25.0f) {
-                float[] dummyProbs = {0.1f, 0.2f, 0.5f, 0.2f}; 
-                processDetection(magnitude, 2.0f, dummyProbs, 1.0f, "Live-Impact", "Verdächtig");
-            }
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+            latestGyro[0] = event.values[0];
+            latestGyro[1] = event.values[1];
+            latestGyro[2] = event.values[2];
+            gyroReceived = true;
+
+            float magnitude = (float) Math.sqrt(latestGyro[0] * latestGyro[0] + latestGyro[1] * latestGyro[1] + latestGyro[2] * latestGyro[2]);
             textGyro.setText(String.format(Locale.getDefault(), "%.1f rad/s", magnitude));
+        }
+
+        if (accelReceived && gyroReceived) {
+            // Sample in den Ringbuffer einfügen
+            sensorWindow[windowIndex][0] = latestAccel[0];
+            sensorWindow[windowIndex][1] = latestAccel[1];
+            sensorWindow[windowIndex][2] = latestAccel[2];
+            sensorWindow[windowIndex][3] = latestGyro[0];
+            sensorWindow[windowIndex][4] = latestGyro[1];
+            sensorWindow[windowIndex][5] = latestGyro[2];
+
+            windowIndex = (windowIndex + 1) % WINDOW_SIZE;
+            if (samplesInWindow < WINDOW_SIZE) samplesInWindow++;
+
+            accelReceived = false;
+            gyroReceived = false;
+
+            // Inferenz-Timing prüfen
+            long currentTime = System.currentTimeMillis();
+            if (samplesInWindow >= WINDOW_SIZE && (currentTime - lastInferenceTime) > INFERENCE_INTERVAL_MS) {
+                performLiveInference();
+                lastInferenceTime = currentTime;
+            }
         }
     }
 
