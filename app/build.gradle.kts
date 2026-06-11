@@ -41,10 +41,16 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+<<<<<<< Updated upstream
     
     // TensorFlow Lite dependencies
     implementation(libs.tensorflow.lite)
     implementation(libs.tensorflow.lite.support)
+=======
+
+    // TensorFlow Lite Runtime
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
+>>>>>>> Stashed changes
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

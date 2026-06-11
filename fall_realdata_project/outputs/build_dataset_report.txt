@@ -1,0 +1,122 @@
+Build Real Fall Dataset 150x6
+============================================================
+Projekt: /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project
+Fenster: 150 Samples = 3.0s bei 50 Hz
+
+Lade SisFall ...
+SisFall TXT-Dateien: 4505
+  SisFall verarbeitet: 500/4505
+  SisFall verarbeitet: 1000/4505
+  SisFall verarbeitet: 1500/4505
+  SisFall verarbeitet: 2000/4505
+  SisFall verarbeitet: 2500/4505
+  SisFall verarbeitet: 3000/4505
+  SisFall verarbeitet: 3500/4505
+  SisFall verarbeitet: 4000/4505
+  SisFall verarbeitet: 4500/4505
+SisFall Fenster: 37136
+
+SisFall Roh-Counts
+------------------
+  0 ruhig_alltag          : 0
+  1 normale_bewegung      : 9973
+  2 fallaehnlich_aber_ok  : 21769
+  3 sturz                 : 5394
+
+Nach Dataset:
+  sisfall   : 37136
+
+Nach Dataset und Klasse:
+  sisfall   : ruhig_alltag=0, normale_bewegung=9973, fallaehnlich_aber_ok=21769, sturz=5394
+
+Lade UniMiB ...
+UniMiB data shape: (11771, 453)
+UniMiB labels shape: (11771, 3)
+UniMiB Fenster: 11771
+
+UniMiB Roh-Counts
+-----------------
+  0 ruhig_alltag          : 0
+  1 normale_bewegung      : 5968
+  2 fallaehnlich_aber_ok  : 1611
+  3 sturz                 : 4192
+
+Nach Dataset:
+  unimib    : 11771
+
+Nach Dataset und Klasse:
+  unimib    : ruhig_alltag=0, normale_bewegung=5968, fallaehnlich_aber_ok=1611, sturz=4192
+
+Lade UP-Fall ...
+Lade UP-Fall CSV. Das kann kurz dauern ...
+UP-Fall shape: (294678, 47)
+UP-Fall Sequenzen: 559
+UP-Fall Fenster: 9626
+
+UP-Fall Roh-Counts
+------------------
+  0 ruhig_alltag          : 5749
+  1 normale_bewegung      : 1939
+  2 fallaehnlich_aber_ok  : 1173
+  3 sturz                 : 765
+
+Nach Dataset:
+  upfall    : 9626
+
+Nach Dataset und Klasse:
+  upfall    : ruhig_alltag=5749, normale_bewegung=1939, fallaehnlich_aber_ok=1173, sturz=765
+
+Lade Personal ...
+Personal-Daten nicht gefunden, uebersprungen: /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project/raw/personal
+Personal Fenster: 0
+
+Personal Roh-Counts
+-------------------
+  0 ruhig_alltag          : 0
+  1 normale_bewegung      : 0
+  2 fallaehnlich_aber_ok  : 0
+  3 sturz                 : 0
+
+Nach Dataset:
+
+Nach Dataset und Klasse:
+
+Alle Daten vor Balancing
+------------------------
+  0 ruhig_alltag          : 5749
+  1 normale_bewegung      : 17880
+  2 fallaehnlich_aber_ok  : 24553
+  3 sturz                 : 10351
+
+Nach Dataset:
+  sisfall   : 37136
+  unimib    : 11771
+  upfall    : 9626
+
+Nach Dataset und Klasse:
+  sisfall   : ruhig_alltag=0, normale_bewegung=9973, fallaehnlich_aber_ok=21769, sturz=5394
+  unimib    : ruhig_alltag=0, normale_bewegung=5968, fallaehnlich_aber_ok=1611, sturz=4192
+  upfall    : ruhig_alltag=5749, normale_bewegung=1939, fallaehnlich_aber_ok=1173, sturz=765
+
+Alle Daten nach Balancing
+-------------------------
+  0 ruhig_alltag          : 5749
+  1 normale_bewegung      : 10000
+  2 fallaehnlich_aber_ok  : 10000
+  3 sturz                 : 10000
+
+Nach Dataset:
+  sisfall   : 19639
+  unimib    : 8036
+  upfall    : 8074
+
+Nach Dataset und Klasse:
+  sisfall   : ruhig_alltag=0, normale_bewegung=5595, fallaehnlich_aber_ok=8845, sturz=5199
+  unimib    : ruhig_alltag=0, normale_bewegung=3322, fallaehnlich_aber_ok=652, sturz=4062
+  upfall    : ruhig_alltag=5749, normale_bewegung=1083, fallaehnlich_aber_ok=503, sturz=739
+
+Final X shape: (35749, 150, 6)
+Final y shape: (35749,)
+NaN in X: False
+Inf in X: False
+X min/max: -156.96001 / 144.50204

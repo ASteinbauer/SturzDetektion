@@ -1,0 +1,184 @@
+Train Real Fall Detection 1D-CNN 150x6
+============================================================
+TensorFlow: 2.21.0
+Dataset: /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project/processed/fall_dataset_150x6.npz
+
+Geladen:
+  X: (35749, 150, 6)
+  y: (35749,)
+  subjects: (35749,)
+  datasets: (35749,)
+  NaN: False
+  Inf: False
+  X min/max: -156.96001 / 144.50204
+
+Train Split
+-----------
+Samples: 25435
+Subjects: 60
+  0 ruhig_alltag          : 4722
+  1 normale_bewegung      : 7067
+  2 fallaehnlich_aber_ok  : 6667
+  3 sturz                 : 6979
+  Nach Dataset:
+    sisfall   : 13010
+    unimib    : 5802
+    upfall    : 6623
+
+Validation Split
+----------------
+Samples: 5652
+Subjects: 15
+  0 ruhig_alltag          : 343
+  1 normale_bewegung      : 1757
+  2 fallaehnlich_aber_ok  : 1778
+  3 sturz                 : 1774
+  Nach Dataset:
+    sisfall   : 3434
+    unimib    : 1731
+    upfall    : 487
+
+Test Split
+----------
+Samples: 4662
+Subjects: 10
+  0 ruhig_alltag          : 684
+  1 normale_bewegung      : 1176
+  2 fallaehnlich_aber_ok  : 1555
+  3 sturz                 : 1247
+  Nach Dataset:
+    sisfall   : 3195
+    unimib    : 503
+    upfall    : 964
+
+Normalisierung:
+  ax: mean=-0.398497, std=5.280029
+  ay: mean=-3.838278, std=7.181847
+  az: mean=0.067399, std=5.404028
+  gx: mean=-0.007970, std=0.721440
+  gy: mean=0.013070, std=0.650920
+  gz: mean=0.003480, std=0.538436
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ sensor_window       │ (None, 150, 6)    │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv1d (Conv1D)     │ (None, 150, 32)   │      1,376 │ sensor_window[0]… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ batch_normalization │ (None, 150, 32)   │        128 │ conv1d[0][0]      │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation          │ (None, 150, 32)   │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling1d       │ (None, 75, 32)    │          0 │ activation[0][0]  │
+│ (MaxPooling1D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ spatial_dropout1d   │ (None, 75, 32)    │          0 │ max_pooling1d[0]… │
+│ (SpatialDropout1D)  │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv1d_1 (Conv1D)   │ (None, 75, 64)    │     10,304 │ spatial_dropout1… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ batch_normalizatio… │ (None, 75, 64)    │        256 │ conv1d_1[0][0]    │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_1        │ (None, 75, 64)    │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling1d_1     │ (None, 37, 64)    │          0 │ activation_1[0][… │
+│ (MaxPooling1D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ spatial_dropout1d_1 │ (None, 37, 64)    │          0 │ max_pooling1d_1[… │
+│ (SpatialDropout1D)  │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv1d_2 (Conv1D)   │ (None, 37, 128)   │     24,704 │ spatial_dropout1… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ batch_normalizatio… │ (None, 37, 128)   │        512 │ conv1d_2[0][0]    │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_2        │ (None, 37, 128)   │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling1d_2     │ (None, 18, 128)   │          0 │ activation_2[0][… │
+│ (MaxPooling1D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ spatial_dropout1d_2 │ (None, 18, 128)   │          0 │ max_pooling1d_2[… │
+│ (SpatialDropout1D)  │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv1d_3 (Conv1D)   │ (None, 18, 128)   │     49,280 │ spatial_dropout1… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ batch_normalizatio… │ (None, 18, 128)   │        512 │ conv1d_3[0][0]    │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_3        │ (None, 18, 128)   │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ spatial_dropout1d_3 │ (None, 18, 128)   │          0 │ activation_3[0][… │
+│ (SpatialDropout1D)  │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ global_average_poo… │ (None, 128)       │          0 │ spatial_dropout1… │
+│ (GlobalAveragePool… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ global_max_pooling… │ (None, 128)       │          0 │ spatial_dropout1… │
+│ (GlobalMaxPooling1… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ concatenate         │ (None, 256)       │          0 │ global_average_p… │
+│ (Concatenate)       │                   │            │ global_max_pooli… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ dense (Dense)       │ (None, 96)        │     24,672 │ concatenate[0][0] │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ batch_normalizatio… │ (None, 96)        │        384 │ dense[0][0]       │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_4        │ (None, 96)        │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ dropout (Dropout)   │ (None, 96)        │          0 │ activation_4[0][… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ class_probabilities │ (None, 4)         │        388 │ dropout[0][0]     │
+│ (Dense)             │                   │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+ Total params: 112,516 (439.52 KB)
+ Trainable params: 111,620 (436.02 KB)
+ Non-trainable params: 896 (3.50 KB)
+
+
+Class Weights:
+  0 ruhig_alltag          : 1.3466
+  1 normale_bewegung      : 0.8998
+  2 fallaehnlich_aber_ok  : 0.9538
+  3 sturz                 : 0.9111
+
+Test Loss: 0.2292
+Test Accuracy: 0.9397
+
+Confusion Matrix:
+[[ 679    0    5    0]
+ [  69 1071   33    3]
+ [  83   30 1437    5]
+ [  43    2    8 1194]]
+
+Klassenauswertung:
+  ruhig_alltag           precision=0.777 recall=0.993 f1=0.872 support=684
+  normale_bewegung       precision=0.971 recall=0.911 f1=0.940 support=1176
+  fallaehnlich_aber_ok   precision=0.969 recall=0.924 f1=0.946 support=1555
+  sturz                  precision=0.993 recall=0.957 f1=0.975 support=1247
+
+Keras Modell gespeichert: /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project/models/fall_detection_real_150x6.keras
+
+TFLite exportiert:
+  /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project/models/fall_detection_real_150x6_float32.tflite
+  /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project/models/fall_detection_real_150x6_dynamic_quant.tflite
+Metadata gespeichert: /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project/models/metadata.json
+
+Beispielvorhersagen:
+  true=normale_bewegung       pred=normale_bewegung       richtig=True | ruhig_alltag=0.000, normale_bewegung=1.000, fallaehnlich_aber_ok=0.000, sturz=0.000
+  true=fallaehnlich_aber_ok   pred=fallaehnlich_aber_ok   richtig=True | ruhig_alltag=0.000, normale_bewegung=0.000, fallaehnlich_aber_ok=1.000, sturz=0.000
+  true=sturz                  pred=fallaehnlich_aber_ok   richtig=False | ruhig_alltag=0.001, normale_bewegung=0.205, fallaehnlich_aber_ok=0.784, sturz=0.010
+  true=ruhig_alltag           pred=ruhig_alltag           richtig=True | ruhig_alltag=0.812, normale_bewegung=0.089, fallaehnlich_aber_ok=0.033, sturz=0.066
+  true=sturz                  pred=sturz                  richtig=True | ruhig_alltag=0.000, normale_bewegung=0.000, fallaehnlich_aber_ok=0.000, sturz=1.000
+
+Fertig.
+Report: /Users/arnesteinbauer/Documents/GitHub/SturzDetektion/fall_realdata_project/outputs/real_training_report.txt
