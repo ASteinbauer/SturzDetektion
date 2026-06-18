@@ -32,7 +32,9 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
@@ -114,6 +116,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private final Random random = new Random();
     private CountDownTimer emergencyTimer;
 
+    // Echte Testdaten (Replay-Modus)
+    private List<JSONObject> testSequences = null;
+    private boolean isReplayMode = false;
+    private float[] lastInferenceProbs = new float[4];
+    private String lastInferenceResult = "Kein Sturz";
+    private String lastInferenceSafetyNote = "";
+
     // KI Komponenten (UNVERÄNDERT)
     private Interpreter tflite;
     private float[] mean = new float[NUM_CHANNELS];
@@ -186,7 +195,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // Click Listeners
         buttonToggleMonitoring.setOnClickListener(v -> toggleMonitoring());
-        buttonOpenTestMode.setOnClickListener(v -> layoutTestMode.setVisibility(View.VISIBLE));
+        buttonOpenTestMode.setOnClickListener(v -> {
+            layoutTestMode.setVisibility(View.VISIBLE);
+            loadRealTestSequences();
+        });
         buttonSimulateEmergency.setOnClickListener(v -> {
             appendLog("Manueller Notfalltest gestartet.");
             startEmergencyCountdown();
@@ -198,6 +210,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             textCountdownTimer.setText("!!");
             appendLog("NOTFALL MANUELL AUSGELÖST!");
         });
+
+        // Echte Testdaten (Replay)
+        findViewById(R.id.btnRealRuhig).setOnClickListener(v ->
+                replayRealSequence(findFirstSeqOfClass(0, "upfall")));
+        findViewById(R.id.btnRealGehen).setOnClickListener(v ->
+                replayRealSequence(findFirstSeqOfClass(1, "sisfall")));
+        findViewById(R.id.btnRealFallAehnlich).setOnClickListener(v ->
+                replayRealSequence(findFirstSeqOfClass(2, "sisfall")));
+        findViewById(R.id.btnRealSturz).setOnClickListener(v ->
+                replayRealSequence(findFirstSeqOfClass(3, "sisfall")));
 
         // Simulations-Buttons im Testmodus
         findViewById(R.id.btnSimFall).setOnClickListener(v -> runSimulation("Echter Sturz", "Sturz"));
@@ -318,6 +340,86 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         badgeStatus.setText(active ? "Überwachung aktiv" : "Inaktiv");
         GradientDrawable shape = (GradientDrawable) badgeStatus.getBackground();
         shape.setColor(active ? ContextCompat.getColor(this, R.color.status_green) : ContextCompat.getColor(this, R.color.status_gray));
+    }
+
+    // -----------------------------------------------------------------------
+    // Echte Testdaten (Replay aus SisFall/UP-Fall/UniMiB)
+    // -----------------------------------------------------------------------
+
+    private void loadRealTestSequences() {
+        if (testSequences != null) return;
+        testSequences = new ArrayList<>();
+        try (InputStream is = getAssets().open("test_sequences.json")) {
+            byte[] buffer = new byte[is.available()];
+            is.read(buffer);
+            JSONObject root = new JSONObject(new String(buffer, StandardCharsets.UTF_8));
+            JSONArray arr = root.getJSONArray("sequences");
+            for (int i = 0; i < arr.length(); i++) {
+                testSequences.add(arr.getJSONObject(i));
+            }
+            appendLog("Echte Testdaten geladen: " + testSequences.size() + " Sequenzen (SisFall/UP-Fall/UniMiB).");
+        } catch (Exception e) {
+            appendLog("Testdaten-Fehler: " + e.getMessage());
+        }
+    }
+
+    private JSONObject findFirstSeqOfClass(int cls, String preferDataset) {
+        if (testSequences == null) return null;
+        // Bevorzugtes Dataset zuerst
+        for (JSONObject seq : testSequences) {
+            try {
+                if (seq.getInt("class") == cls && seq.getString("dataset").equals(preferDataset))
+                    return seq;
+            } catch (Exception ignored) {}
+        }
+        // Fallback: beliebiges Dataset
+        for (JSONObject seq : testSequences) {
+            try {
+                if (seq.getInt("class") == cls) return seq;
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private void replayRealSequence(JSONObject seq) {
+        if (seq == null) { appendLog("Keine Testsequenz gefunden."); return; }
+        if (!modelLoaded) { appendLog("Modell nicht geladen."); return; }
+        try {
+            String label    = seq.getString("label");
+            String expected = seq.getString("expected");
+            String dataset  = seq.getString("dataset");
+            double maxAcc   = seq.optDouble("max_accel_ms2", 0);
+            JSONArray values = seq.getJSONArray("values");
+
+            // Sensorwindow mit echten Rohdaten füllen (m/s² / rad/s)
+            for (int i = 0; i < WINDOW_SIZE && i < values.length(); i++) {
+                JSONArray row = values.getJSONArray(i);
+                sensorWindow[i][0] = (float) row.getDouble(0);
+                sensorWindow[i][1] = (float) row.getDouble(1);
+                sensorWindow[i][2] = (float) row.getDouble(2);
+                sensorWindow[i][3] = (float) row.getDouble(3);
+                sensorWindow[i][4] = (float) row.getDouble(4);
+                sensorWindow[i][5] = (float) row.getDouble(5);
+            }
+            windowIndex = 0;
+            samplesInWindow = WINDOW_SIZE;
+            consecutiveFallWindows = 0;
+
+            textSensorSource.setText("Replay: " + label + " [" + dataset + "]");
+            appendLog(String.format(Locale.getDefault(),
+                    "--- Replay: %s [%s] | max_acc=%.1f m/s² ---", label, dataset, maxAcc));
+
+            isReplayMode = true;
+            performLiveInference();
+            isReplayMode = false;
+
+            // Auswertung mit gespeichertem KI-Ergebnis anzeigen
+            updateTestEvaluation(label + " [" + dataset + "]", expected,
+                    lastInferenceResult, lastInferenceSafetyNote, lastInferenceProbs);
+
+        } catch (Exception e) {
+            appendLog("Replay-Fehler: " + e.getMessage());
+        }
     }
 
     private void runSimulation(String scenario, String expected) {
@@ -556,7 +658,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         float[][][] input = new float[1][WINDOW_SIZE][NUM_CHANNELS];
         float maxAccel = 0;
-        float totalMovementInWindow = 0; // Neu: Um Schütteln zu erkennen
+        float totalMovementInWindow = 0;
+        float minAccelMagnitude = 100f; // Für Free-Fall Check
+        float preImpactActivity = 0;    // Aktivität am Anfang des Fensters
+        float preGyroActivity = 0;      // Gyro-Aktivität vor dem Ereignis
+        float maxGyroMag = 0;           // Maximale Gyro-Stärke im Fenster
 
         // Fenster chronologisch aufbauen
         for (int i = 0; i < WINDOW_SIZE; i++) {
@@ -574,9 +680,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             float aMag = (float) Math.sqrt(ax * ax + ay * ay + az * az);
             if (aMag > maxAccel) maxAccel = aMag;
-            
+            if (aMag < minAccelMagnitude) minAccelMagnitude = aMag;
+            if (gMag > maxGyroMag) maxGyroMag = gMag;
+
             // Abweichung von der Erdschwerkraft summieren (Bewegungsenergie)
             totalMovementInWindow += Math.abs(aMag - 9.81f);
+
+            // Die ersten 40 Samples (ca. 0.8s) als "Vorgeschichte" prüfen
+            if (i < 40) {
+                preImpactActivity += Math.abs(aMag - 9.81f);
+                preGyroActivity += gMag;
+            }
 
             input[0][i][0] = (ax - mean[0]) / std[0];
             input[0][i][1] = (ay - mean[1]) / std[1];
@@ -589,6 +703,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // Durchschnittliche Bewegung im Fenster (Schüttel-Metrik)
         float avgMovement = totalMovementInWindow / WINDOW_SIZE;
+        float avgPreActivity = preImpactActivity / 40f;
+        float avgPreGyroActivity = preGyroActivity / 40f;
 
         // moveAfter: Nur die allerletzten 0.5 Sekunden prüfen (Liegt er danach still?)
         float moveAfter = 0;
@@ -611,7 +727,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         float[][] output = new float[1][NUM_CLASSES];
         tflite.run(input, output);
         
-        processAdvancedDetection(maxAccel, avgMovement, moveAfter, tiltDiff, output[0]);
+        processAdvancedDetection(maxAccel, avgMovement, avgPreActivity, minAccelMagnitude, moveAfter, tiltDiff, avgPreGyroActivity, maxGyroMag, output[0]);
     }
 
     private float calculateTiltAtIndex(int index) {
@@ -623,31 +739,40 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return (float) Math.toDegrees(Math.acos(az / mag));
     }
 
-    private void processAdvancedDetection(float maxAccel, float avgMovement, float moveAfter, float tiltDiff, float[] probs) {
+    private void processAdvancedDetection(float maxAccel, float avgMovement, float avgPreActivity,
+            float minAccel, float moveAfter, float tiltDiff,
+            float avgPreGyroActivity, float maxGyroMag, float[] probs) {
+
         float fallProb = probs[3];
         int predictedClass = 0;
         float maxProb = -1;
-        for(int i=0; i<4; i++) { if(probs[i] > maxProb) { maxProb = probs[i]; predictedClass = i; } }
+        for (int i = 0; i < 4; i++) { if (probs[i] > maxProb) { maxProb = probs[i]; predictedClass = i; } }
 
-        // --- EXPERTEN-LOGIK GEGEN SCHÜTTELN ---
-        
-        boolean isShaking = (avgMovement > 8.0f); // Viel Bewegung im gesamten 3s Fenster
-        boolean hasImpact = (maxAccel > HIGH_ACCEL_THRESHOLD);
-        boolean hasOrientationChange = (tiltDiff > 20.0f); // Handy muss sich gedreht haben
-        boolean isLyingStill = (moveAfter < LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD);
-        
-        boolean aiSaysFall = (fallProb > FALL_CONFIDENCE_THRESHOLD);
-        
+        // --- ANTI-FALSE-POSITIVE-LOGIK (V4) ---
+
+        boolean wasShakingBefore = (avgPreActivity > 6.0f);
+        boolean hasFreeFall = (minAccel < 3.0f);
+        boolean isLyingStill = (moveAfter < 1.8f);
+        boolean rotated = (tiltDiff > 22.0f);
+
+        // NEU: Handy-Drop-Erkennung
+        // Wenn VOR dem Ereignis KEINE Körperbewegung messbar ist (weder Beschleunigung noch Rotation),
+        // handelt es sich wahrscheinlich um ein vom Tisch fallendes Handy, nicht um einen Personensturz.
+        boolean preCompletelyStill = (avgPreActivity < 0.5f && avgPreGyroActivity < 0.10f);
+        boolean noBodyRotation = (maxGyroMag < 1.5f);
+        boolean isPhoneDrop = (preCompletelyStill && noBodyRotation);
+
         String vetoReason = "";
-        if (aiSaysFall) {
-            if (isShaking) vetoReason = "Schütteln erkannt";
-            else if (!hasImpact) vetoReason = "Zu schwacher Stoß";
-            else if (!hasOrientationChange) vetoReason = "Lage stabil";
-            else if (!isLyingStill) vetoReason = "Keine Ruhe nach Stoß";
+        if (fallProb > 0.80f) {
+            if (wasShakingBefore)                  vetoReason = "Vorgeschichte unruhig (Schütteln)";
+            else if (!hasFreeFall && maxAccel < 40f) vetoReason = "Kein freier Fall";
+            else if (isPhoneDrop)                  vetoReason = "Kein Körpersturz (Handy-Sturz)";
+            else if (!isLyingStill)                vetoReason = "Bewegung nach Stoß";
+            else if (!rotated)                     vetoReason = "Orientierung stabil";
         }
 
-        boolean finalDecision = aiSaysFall && vetoReason.isEmpty();
-        
+        boolean finalDecision = (fallProb > FALL_CONFIDENCE_THRESHOLD && vetoReason.isEmpty());
+
         if (finalDecision) {
             consecutiveFallWindows++;
         } else {
@@ -656,28 +781,36 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         String resultText = "Kein Sturz";
         String statusDesc = "Alles im grünen Bereich.";
-        
+
         if (consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
             resultText = "Sturz erkannt";
-            statusDesc = "KI und Physik bestätigen einen Notfall!";
-        } else if (aiSaysFall) {
-            resultText = "Auffällige Bewegung";
-            statusDesc = "KI vermutet Sturz, aber: " + vetoReason;
+            statusDesc = "Notfall bestätigt (KI+Physik+Körpersignal)";
+        } else if (fallProb > 0.60f) {
+            resultText = "Verdächtige Bewegung";
+            statusDesc = vetoReason.isEmpty() ? "KI prüft auf Bestätigung..." : "Abgelehnt: " + vetoReason;
         } else if (probs[2] > 0.5f || maxAccel > 25.0f) {
             resultText = "Verdächtige Bewegung";
             statusDesc = "Erhöhte Aktivität erkannt.";
         }
 
-        updateResultUi(resultText, (int)(maxProb * 100), probs);
+        // Ergebnis für Replay-Modus zwischenspeichern
+        lastInferenceResult = resultText;
+        lastInferenceSafetyNote = statusDesc;
+        System.arraycopy(probs, 0, lastInferenceProbs, 0, probs.length);
+
+        updateResultUi(resultText, (int) (maxProb * 100), probs);
         textStatusDescription.setText(statusDesc);
-        
-        if (finalDecision && consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
+
+        if (!isReplayMode && finalDecision && consecutiveFallWindows >= REQUIRED_FALL_WINDOWS) {
             startEmergencyCountdown();
         }
 
-        Log.d(TAG, String.format("Advanced: AI=%.2f, Shaking=%.1f, Tilt=%.1f, Impact=%.1f, Result=%s", 
-                fallProb, avgMovement, tiltDiff, maxAccel, resultText));
-        appendLog(String.format("KI: %.1f%% | %s", fallProb*100, resultText));
+        Log.d(TAG, String.format(Locale.getDefault(),
+                "Advanced: AI=%.2f pre_acc=%.2f pre_gyro=%.3f maxGyro=%.2f phoneDrop=%b veto=%s result=%s",
+                fallProb, avgPreActivity, avgPreGyroActivity, maxGyroMag, isPhoneDrop, vetoReason, resultText));
+        appendLog(String.format(Locale.getDefault(), "KI: %.1f%% | preGyro=%.2f | %s%s",
+                fallProb * 100, avgPreGyroActivity, resultText,
+                vetoReason.isEmpty() ? "" : " [" + vetoReason + "]"));
     }
 
     @Override
