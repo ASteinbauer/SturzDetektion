@@ -751,24 +751,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // --- ANTI-FALSE-POSITIVE-LOGIK (V4) ---
 
         boolean wasShakingBefore = (avgPreActivity > 6.0f);
-        boolean hasFreeFall = (minAccel < 3.0f);
         boolean isLyingStill = (moveAfter < 1.8f);
         boolean rotated = (tiltDiff > 22.0f);
 
-        // NEU: Handy-Drop-Erkennung
-        // Wenn VOR dem Ereignis KEINE Körperbewegung messbar ist (weder Beschleunigung noch Rotation),
-        // handelt es sich wahrscheinlich um ein vom Tisch fallendes Handy, nicht um einen Personensturz.
+        // Handy-Drop vom Tisch: Vorgeschichte komplett still + keine Körper-Rotation
         boolean preCompletelyStill = (avgPreActivity < 0.5f && avgPreGyroActivity < 0.10f);
         boolean noBodyRotation = (maxGyroMag < 1.5f);
-        boolean isPhoneDrop = (preCompletelyStill && noBodyRotation);
+        // Handy-Drop im Gehen: moderate Vorgeschichte (Gehen), aber keine dramatische Körperdrehung.
+        // Echter Sturz hat durch Körperdrehung typischerweise maxGyroMag > 4 rad/s.
+        boolean isWalkingPhoneDrop = (avgPreActivity > 0.8f && avgPreActivity < 5.5f
+                                       && maxGyroMag < 4.0f);
+        boolean isPhoneDrop = (preCompletelyStill && noBodyRotation) || isWalkingPhoneDrop;
 
+        // Veto-System: KI sagt Sturz, aber Physik passt nicht.
+        // Hinweis: FreeFall-Check entfernt – Sturz im Stehen (Synkope, Knie knickt) hat oft kein
+        // echtes freies Fallen; der alte Check (!hasFreeFall && maxAccel < 40f) blockierte diese.
         String vetoReason = "";
         if (fallProb > 0.80f) {
-            if (wasShakingBefore)                  vetoReason = "Vorgeschichte unruhig (Schütteln)";
-            else if (!hasFreeFall && maxAccel < 40f) vetoReason = "Kein freier Fall";
-            else if (isPhoneDrop)                  vetoReason = "Kein Körpersturz (Handy-Sturz)";
-            else if (!isLyingStill)                vetoReason = "Bewegung nach Stoß";
-            else if (!rotated)                     vetoReason = "Orientierung stabil";
+            if (wasShakingBefore)   vetoReason = "Vorgeschichte unruhig (Schütteln)";
+            else if (isPhoneDrop)   vetoReason = "Kein Körpersturz (Handy-Sturz)";
+            else if (!isLyingStill) vetoReason = "Bewegung nach Stoß";
+            else if (!rotated)      vetoReason = "Orientierung stabil";
         }
 
         boolean finalDecision = (fallProb > FALL_CONFIDENCE_THRESHOLD && vetoReason.isEmpty());
@@ -806,8 +809,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
         Log.d(TAG, String.format(Locale.getDefault(),
-                "Advanced: AI=%.2f pre_acc=%.2f pre_gyro=%.3f maxGyro=%.2f phoneDrop=%b veto=%s result=%s",
-                fallProb, avgPreActivity, avgPreGyroActivity, maxGyroMag, isPhoneDrop, vetoReason, resultText));
+                "Advanced: AI=%.2f pre_acc=%.2f pre_gyro=%.3f maxGyro=%.2f walkDrop=%b phoneDrop=%b veto=%s result=%s",
+                fallProb, avgPreActivity, avgPreGyroActivity, maxGyroMag, isWalkingPhoneDrop, isPhoneDrop, vetoReason, resultText));
         appendLog(String.format(Locale.getDefault(), "KI: %.1f%% | preGyro=%.2f | %s%s",
                 fallProb * 100, avgPreGyroActivity, resultText,
                 vetoReason.isEmpty() ? "" : " [" + vetoReason + "]"));

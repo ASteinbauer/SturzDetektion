@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SturzDetektion – Präsentation</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1923;
+    color: #e0e6ed;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Top bar ── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+    background: #141e2b;
+    border-bottom: 1px solid #1e2d3d;
+    flex-shrink: 0;
+    gap: 16px;
+  }
+  #topbar h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #7eb8f7;
+    white-space: nowrap;
+  }
+  #slide-counter {
+    font-size: 13px;
+    color: #7a8fa6;
+    white-space: nowrap;
+  }
+
+  /* ── Progress bar ── */
+  #progress-wrap {
+    flex: 1;
+    height: 4px;
+    background: #1e2d3d;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  #progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #3498db, #2ecc71);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  /* ── Main area ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── Slide viewer ── */
+  #slide-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    position: relative;
+    min-width: 0;
+  }
+
+  #slide-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  #slide-img.fade-out { opacity: 0; transform: scale(0.97); }
+  #slide-img.fade-in  { opacity: 1; transform: scale(1); }
+
+  /* ── Prev / Next nav arrows ── */
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(20,30,43,0.85);
+    border: 1px solid #2a3f55;
+    color: #7eb8f7;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  .nav-btn:hover { background: #1e3a5f; color: #fff; }
+  .nav-btn:disabled { opacity: 0.2; cursor: default; }
+  #btn-prev { left: 8px; }
+  #btn-next { right: 8px; }
+
+  /* ── Speaker notes panel ── */
+  #notes-panel {
+    width: 340px;
+    flex-shrink: 0;
+    background: #141e2b;
+    border-left: 1px solid #1e2d3d;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #notes-header {
+    padding: 12px 18px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #4a6785;
+    border-bottom: 1px solid #1e2d3d;
+    flex-shrink: 0;
+  }
+  #notes-title {
+    padding: 14px 18px 4px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #7eb8f7;
+    flex-shrink: 0;
+  }
+  #notes-body {
+    padding: 8px 18px 18px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #c5d5e8;
+    overflow-y: auto;
+    flex: 1;
+  }
+  #notes-body p { margin-bottom: 10px; }
+  #notes-body ul { margin: 6px 0 10px 18px; }
+  #notes-body li { margin-bottom: 6px; }
+  #notes-body strong { color: #7eb8f7; }
+  #notes-body em { color: #f0a500; font-style: normal; }
+  #notes-body .tag {
+    display: inline-block;
+    background: #1e3a5f;
+    color: #7eb8f7;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  #notes-body .tag.green  { background: #1a3d2b; color: #2ecc71; }
+  #notes-body .tag.orange { background: #3d2a10; color: #e67e22; }
+  #notes-body .tag.red    { background: #3d1a1a; color: #e74c3c; }
+
+  /* ── Bottom thumbnail bar ── */
+  #thumb-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #0d151e;
+    border-top: 1px solid #1e2d3d;
+    overflow-x: auto;
+    flex-shrink: 0;
+    align-items: center;
+    scrollbar-width: thin;
+    scrollbar-color: #2a3f55 transparent;
+  }
+  .thumb {
+    flex-shrink: 0;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    opacity: 0.5;
+    transition: opacity 0.2s, border-color 0.2s;
+    overflow: hidden;
+    height: 40px;
+  }
+  .thumb img { height: 40px; display: block; }
+  .thumb:hover { opacity: 0.8; }
+  .thumb.active { border-color: #3498db; opacity: 1; }
+
+  /* ── Keyboard hint ── */
+  #keyboard-hint {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(14,24,35,0.8);
+    border: 1px solid #1e2d3d;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11px;
+    color: #4a6785;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 1s;
+  }
+  #keyboard-hint.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div id="topbar">
+  <h1>SturzDetektion &mdash; KI-gestützte Sturzerkennung</h1>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <span id="slide-counter">1 / 10</span>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="slide-area">
+    <button class="nav-btn" id="btn-prev" onclick="navigate(-1)">&#8249;</button>
+    <img id="slide-img" src="" alt="Folie" class="fade-in">
+    <button class="nav-btn" id="btn-next" onclick="navigate(1)">&#8250;</button>
+    <div id="keyboard-hint">&#8592; &#8594; Pfeiltasten &nbsp;|&nbsp; Leertaste vor &nbsp;|&nbsp; F Vollbild</div>
+  </div>
+
+  <!-- Notes -->
+  <div id="notes-panel">
+    <div id="notes-header">&#128221; Sprecher-Notizen</div>
+    <div id="notes-title"></div>
+    <div id="notes-body"></div>
+  </div>
+</div>
+
+<!-- Thumbnail bar -->
+<div id="thumb-bar" id="thumb-bar"></div>
+
+<script>
+const slides = [
+  {
+    img: "slide_01_titel.png",
+    title: "Folie 1 – Titelfolie",
+    notes: `
+      <p>Die App besteht aus <strong>drei Säulen</strong> die zusammenarbeiten müssen:</p>
+      <ul>
+        <li><strong>KI-Modell</strong> – das Gehirn: erkennt Sturzmuster aus Sensordaten</li>
+        <li><strong>Android App</strong> – liest Sensoren live ein, führt Inferenz aus</li>
+        <li><strong>Veto-Logik</strong> – zweite Sicherheitsebene gegen Fehlalarme</li>
+      </ul>
+      <p>Nur wenn <em>alle drei</em> grünes Licht geben wird ein Alarm ausgelöst. Das ist der zentrale Designansatz.</p>
+    `
+  },
+  {
+    img: "slide_02_datensatz.png",
+    title: "Folie 2 – Datensatz-Übersicht",
+    notes: `
+      <p><strong>Links (Tortendiagramm):</strong> Drei öffentliche Forschungsdatensätze kombiniert — <strong>35.749 Zeitfenster</strong> gesamt.</p>
+      <ul>
+        <li><strong>SisFall</strong> (55 %) – 15 Falltypen, körpergetragen, 200 Hz</li>
+        <li><strong>UP-Fall</strong> (23 %) – 5 Falltypen, Hosentasche, 50 Hz</li>
+        <li><strong>UniMiB</strong> (22 %) – nur Acc, Gyro mit 0 aufgefüllt</li>
+      </ul>
+      <p><strong>Rechts (Balken):</strong> Der Split ist <em>subject-basiert</em> (70/15/10%) — Personen im Training kommen NIE im Test vor. Das macht die Accuracy ehrlicher als ein zufälliger Split.</p>
+    `
+  },
+  {
+    img: "slide_03_architektur.png",
+    title: "Folie 3 – Modell-Architektur",
+    notes: `
+      <p>Das Modell bekommt ein <strong>3-Sekunden-Fenster</strong> mit 7 Kanälen (ax, ay, az, gx, gy, gz, Gyro-Betrag).</p>
+      <ul>
+        <li><strong>4× Conv1D + BN + Pooling</strong> – extrahiert automatisch Zeitreihenmuster, Filter wachsen von 32 → 64 → 128 → 128</li>
+        <li><strong>Dropout 0.3</strong> – verhindert Overfitting</li>
+        <li><strong>Global Average Pooling</strong> – reduziert auf einen Vektor unabhängig von Fensterlänge</li>
+        <li><strong>Dense 96 + Softmax</strong> – gibt 4 Wahrscheinlichkeiten aus</li>
+      </ul>
+      <p>Gesamtgröße: <em>~391 KB</em> — bewusst klein für Smartphone-Einsatz.</p>
+    `
+  },
+  {
+    img: "slide_04_confusion_matrix.png",
+    title: "Folie 4 – Confusion Matrix",
+    notes: `
+      <p>Die <strong>Diagonale</strong> = richtige Vorhersagen (je dunkler desto besser).</p>
+      <p>Kritisch ist die <strong>Sturz-Zeile</strong> (letzte Zeile):</p>
+      <ul>
+        <li>1.169 von 1.247 Stürzen korrekt erkannt → <em>Recall 93,7 %</em></li>
+        <li>Nur 47 fälschlicherweise als "Ruhig" klassifiziert</li>
+        <li><strong>Precision Sturz: 99,4 %</strong> – fast kein Fehlalarm von oben</li>
+      </ul>
+      <p>Für eine Sicherheitsapp ist <em>Recall</em> wichtiger als Precision — ein verpasster Sturz ist schlimmer als ein falscher Alarm. Die niedrige Precision bei "Ruhig" (77 %) ist unkritisch, da Ruhig keinen Alarm auslöst.</p>
+    `
+  },
+  {
+    img: "slide_05_training.png",
+    title: "Folie 5 – Trainings-Kurven",
+    notes: `
+      <p><strong>Accuracy-Kurve (links):</strong> Training (blau) und Validation (orange) verlaufen nah beieinander — <em>kein Overfitting</em>. Konvergenz ab ca. Epoche 30.</p>
+      <p><strong>Loss-Kurve (rechts):</strong> Ähnliches Bild — Loss fällt gleichmäßig. Der kurze Spike am Anfang ist normal (Batch-Normalisierung stabilisiert sich).</p>
+      <p>Die roten Punktlinien zeigen die <strong>Test-Werte auf unbekannten Personen</strong>: 93,7 % Accuracy und Loss 0,22 — nah an Validation, d.h. das Modell generalisiert gut.</p>
+    `
+  },
+  {
+    img: "slide_06_pipeline.png",
+    title: "Folie 6 – App-Pipeline",
+    notes: `
+      <p>Der komplette <strong>Datenfluss in Echtzeit</strong> von Sensor bis Alarm:</p>
+      <ul>
+        <li><strong>Sensoren</strong> – Acc + Gyro + Barometer @ 50 Hz</li>
+        <li><strong>Ringpuffer</strong> – hält immer die letzten 150 Samples (3 Sek.)</li>
+        <li><strong>Normalisierung</strong> – Z-Score mit Mittelwert/Std aus dem Training</li>
+        <li><strong>1D-CNN</strong> – TFLite Inferenz alle 400 ms</li>
+        <li><strong>Veto-Logik</strong> – physikalische Plausibilitätsprüfung</li>
+        <li><strong>Alarm</strong> – 30-Sek. Countdown, dann simulierter Notruf</li>
+      </ul>
+      <p>Alles läuft <em>offline</em> auf dem Gerät — kein Internet nötig.</p>
+    `
+  },
+  {
+    img: "slide_07_veto_logik.png",
+    title: "Folie 7 – Veto-Logik Alt vs. Neu",
+    notes: `
+      <p>Die Veto-Logik ist die <strong>zweite Sicherheitsebene</strong>. Wenn die KI Sturz sagt, prüfen mehrere physikalische Checks ob das plausibel ist.</p>
+      <p><span class="tag red">ALT – Problem 1</span> <strong>FreeFall-Veto</strong> blockierte echte Stürze aus dem Stand (Synkope, Knie knickt). Wer "crumpled" fällt hat keinen messbaren Freiflug. <em>→ Check komplett entfernt</em></p>
+      <p><span class="tag orange">ALT – Problem 2</span> <strong>isPhoneDrop</strong> griff nur bei statischem Drop (Tisch). Beim Gehen hat die Vorgeschichte zu viel Bewegung. <em>→ Neuer isWalkingPhoneDrop-Check</em></p>
+      <p><span class="tag green">NEU</span> Wenn Gehaktivität (0.8–5.5 m/s²) aber kein Gyro-Peak (&lt; 4 rad/s) → wahrscheinlich Handy gefallen, kein Körpersturz.</p>
+    `
+  },
+  {
+    img: "slide_08_signale.png",
+    title: "Folie 8 – Sensor-Signalmuster",
+    notes: `
+      <p>Visuell sieht man <strong>warum die 4 Klassen unterschiedlich sind</strong>:</p>
+      <ul>
+        <li><strong>Ruhig</strong> – Flache Linie ~9,81 m/s² (Erdschwerkraft), kein Gyro</li>
+        <li><strong>Gehen</strong> – Rhythmische Schwingung ~1,8 Hz, moderater Gyro im Takt</li>
+        <li><strong>Stolpern</strong> – Ein einzelner Peak, danach wieder normal — kurze Störung</li>
+        <li><strong>Sturz</strong> – Erst unter 9,81 (Free Fall), dann massiver Impact-Peak (35–40 m/s²), dann still. Gyro-Peak zeigt gleichzeitige Körperdrehung.</li>
+      </ul>
+      <p>Genau diese Muster lernt das 1D-CNN automatisch aus den Trainingsdaten.</p>
+    `
+  },
+  {
+    img: "slide_09_aenderungen.png",
+    title: "Folie 9 – Was wurde entwickelt & geändert",
+    notes: `
+      <p>Die <strong>Entwicklungs-Timeline</strong> von unten nach oben lesen:</p>
+      <ul>
+        <li><strong>Modell-Basis</strong> – 1D-CNN, 7 Kanäle, 3 Datensätze, 93,7 %</li>
+        <li><strong>Android App</strong> – Live-Sensoren, TFLite, Testmodus, Replay</li>
+        <li><strong>Veto V3→V4</strong> – Erster Handy-Drop-Check (statisch, Tisch)</li>
+        <li><span class="tag green">NEU</span> <strong>Veto V4→V5</strong> – Handy-Drop auch beim Gehen erkannt</li>
+        <li><span class="tag red">FIX</span> <strong>Sturz im Stehen</strong> – FreeFall-Veto entfernt, Synkopen werden erkannt</li>
+      </ul>
+      <p>Die letzten zwei Punkte sind die <em>aktuellen Verbesserungen</em> dieser Session.</p>
+    `
+  },
+  {
+    img: "slide_10_fazit.png",
+    title: "Folie 10 – Fazit & Ausblick",
+    notes: `
+      <p><strong>Die vier Kennzahlen</strong> der App auf einen Blick:</p>
+      <ul>
+        <li><em>93,7 %</em> Test-Accuracy auf komplett unbekannten Personen</li>
+        <li><em>~391 KB</em> TFLite-Modell — läuft auf jedem Android-Handy</li>
+        <li><em>4 Klassen</em> — von Ruhig bis Sturz mit Zwischenstufen</li>
+        <li><em>5 Veto-Checks</em> — physikalische Absicherung gegen Fehlalarme</li>
+      </ul>
+      <p><strong>Wichtigstes Argument:</strong> Die App läuft komplett <em>offline</em> — ideal für den realen Einsatz bei älteren Menschen ohne Internetabhängigkeit.</p>
+      <p>Ausblick: Smartwatch-Integration wäre der größte Sprung, da Handgelenk-Sensoren näher am Körper sind als Hosentasche.</p>
+    `
+  }
+];
+
+let current = 0;
+
+function render(idx, direction) {
+  const img = document.getElementById('slide-img');
+  img.classList.remove('fade-in');
+  img.classList.add('fade-out');
+
+  setTimeout(() => {
+    img.src = slides[idx].img;
+    document.getElementById('notes-title').textContent = slides[idx].title;
+    document.getElementById('notes-body').innerHTML = slides[idx].notes;
+    document.getElementById('slide-counter').textContent = `${idx + 1} / ${slides.length}`;
+    document.getElementById('progress-bar').style.width = `${((idx + 1) / slides.length) * 100}%`;
+
+    document.querySelectorAll('.thumb').forEach((t, i) => {
+      t.classList.toggle('active', i === idx);
+      if (i === idx) t.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+    });
+
+    document.getElementById('btn-prev').disabled = (idx === 0);
+    document.getElementById('btn-next').disabled = (idx === slides.length - 1);
+
+    img.classList.remove('fade-out');
+    img.classList.add('fade-in');
+  }, 200);
+}
+
+function navigate(delta) {
+  const next = Math.max(0, Math.min(slides.length - 1, current + delta));
+  if (next === current) return;
+  current = next;
+  render(current);
+}
+
+function goTo(idx) {
+  if (idx === current) return;
+  current = idx;
+  render(current);
+}
+
+// Build thumbnails
+const thumbBar = document.getElementById('thumb-bar');
+slides.forEach((s, i) => {
+  const div = document.createElement('div');
+  div.className = 'thumb' + (i === 0 ? ' active' : '');
+  div.title = s.title;
+  div.onclick = () => goTo(i);
+  const img = document.createElement('img');
+  img.src = s.img;
+  img.alt = s.title;
+  div.appendChild(img);
+  thumbBar.appendChild(div);
+});
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); navigate(1); }
+  if (e.key === 'ArrowLeft'  || e.key === 'PageUp')                    { e.preventDefault(); navigate(-1); }
+  if (e.key === 'f' || e.key === 'F') document.documentElement.requestFullscreen?.();
+  if (e.key === 'Home') goTo(0);
+  if (e.key === 'End')  goTo(slides.length - 1);
+});
+
+// Hide keyboard hint after 4s
+setTimeout(() => document.getElementById('keyboard-hint').classList.add('hidden'), 4000);
+
+// Init
+render(0);
+</script>
+</body>
+</html>
