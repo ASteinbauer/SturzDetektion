@@ -45,14 +45,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private static final String METADATA_FILE = "metadata.json";
     
     // Konstanten für Sicherheitsregeln (Feingetunt für echten Einsatz)
-    private static final float FALL_CONFIDENCE_THRESHOLD = 0.88f;      // Leicht gesenkt für bessere Erkennung
-    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.40f; // Etwas sensibler für Vor-Warnung
-    private static final float HIGH_ACCEL_THRESHOLD = 34.0f;           // Höherer Puffer gegen Joggen/Rempler
+    private static final float FALL_CONFIDENCE_THRESHOLD = 0.90f;      // Erhöht: weniger Fehlalarme
+    private static final float SUSPICIOUS_CONFIDENCE_THRESHOLD = 0.40f;
+    private static final float HIGH_ACCEL_THRESHOLD = 34.0f;
     private static final float LOW_MOVEMENT_AFTER_IMPACT_THRESHOLD = 2.0f;
 
-    private static final float CLASS2_STRICT_THRESHOLD = 0.80f;        // Höhere Hürde für Klasse 2 Warnungen
-    private static final float CLASS2_WARNING_ACCEL_THRESHOLD = 28.0f; 
-    private static final int REQUIRED_FALL_WINDOWS = 2;
+    private static final float CLASS2_STRICT_THRESHOLD = 0.80f;
+    private static final float CLASS2_WARNING_ACCEL_THRESHOLD = 28.0f;
+    // 3 Fenster = 1,2 Sek. konsistentes Sturzsignal nötig.
+    // Verhindert Alarm durch einzelne Handy-Drop-Fenster im Sliding-Window.
+    private static final int REQUIRED_FALL_WINDOWS = 3;
 
     private int consecutiveFallWindows = 0;
 
@@ -757,21 +759,25 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Handy-Drop vom Tisch: Vorgeschichte komplett still + keine Körper-Rotation
         boolean preCompletelyStill = (avgPreActivity < 0.5f && avgPreGyroActivity < 0.10f);
         boolean noBodyRotation = (maxGyroMag < 1.5f);
-        // Handy-Drop im Gehen: moderate Vorgeschichte (Gehen), aber keine dramatische Körperdrehung.
-        // Echter Sturz hat durch Körperdrehung typischerweise maxGyroMag > 4 rad/s.
+        // Handy-Drop im Gehen: moderate Vorgeschichte (Gehen), aber kein starker Gyro-Peak.
+        // Schwelle 6.0 rad/s: fängt auch taumelnde Handys (5–6 rad/s) ab.
+        // Echter Körpersturz beim Gehen hat typischerweise maxGyroMag > 6 rad/s.
         boolean isWalkingPhoneDrop = (avgPreActivity > 0.8f && avgPreActivity < 5.5f
-                                       && maxGyroMag < 4.0f);
+                                       && maxGyroMag < 6.0f);
         boolean isPhoneDrop = (preCompletelyStill && noBodyRotation) || isWalkingPhoneDrop;
 
+        // Ein echter Körpersturz dreht den Körper immer messbar.
+        // Wenn maxGyroMag < 2.0 rad/s, kann kein Körper gestürzt sein → Handy oder Tisch-Stoß.
+        boolean hasBodyRotation = (maxGyroMag >= 2.0f);
+
         // Veto-System: KI sagt Sturz, aber Physik passt nicht.
-        // Hinweis: FreeFall-Check entfernt – Sturz im Stehen (Synkope, Knie knickt) hat oft kein
-        // echtes freies Fallen; der alte Check (!hasFreeFall && maxAccel < 40f) blockierte diese.
         String vetoReason = "";
         if (fallProb > 0.80f) {
-            if (wasShakingBefore)   vetoReason = "Vorgeschichte unruhig (Schütteln)";
-            else if (isPhoneDrop)   vetoReason = "Kein Körpersturz (Handy-Sturz)";
-            else if (!isLyingStill) vetoReason = "Bewegung nach Stoß";
-            else if (!rotated)      vetoReason = "Orientierung stabil";
+            if (wasShakingBefore)      vetoReason = "Vorgeschichte unruhig (Schütteln)";
+            else if (isPhoneDrop)      vetoReason = "Kein Körpersturz (Handy-Sturz)";
+            else if (!hasBodyRotation) vetoReason = "Keine Körperdrehung";
+            else if (!isLyingStill)    vetoReason = "Bewegung nach Stoß";
+            else if (!rotated)         vetoReason = "Orientierung stabil";
         }
 
         boolean finalDecision = (fallProb > FALL_CONFIDENCE_THRESHOLD && vetoReason.isEmpty());
@@ -809,10 +815,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
         Log.d(TAG, String.format(Locale.getDefault(),
-                "Advanced: AI=%.2f pre_acc=%.2f pre_gyro=%.3f maxGyro=%.2f walkDrop=%b phoneDrop=%b veto=%s result=%s",
-                fallProb, avgPreActivity, avgPreGyroActivity, maxGyroMag, isWalkingPhoneDrop, isPhoneDrop, vetoReason, resultText));
-        appendLog(String.format(Locale.getDefault(), "KI: %.1f%% | preGyro=%.2f | %s%s",
-                fallProb * 100, avgPreGyroActivity, resultText,
+                "Advanced: AI=%.2f pre_acc=%.2f pre_gyro=%.3f maxGyro=%.2f walkDrop=%b phoneDrop=%b bodyRot=%b veto='%s' consec=%d result=%s",
+                fallProb, avgPreActivity, avgPreGyroActivity, maxGyroMag,
+                isWalkingPhoneDrop, isPhoneDrop, hasBodyRotation, vetoReason, consecutiveFallWindows, resultText));
+        appendLog(String.format(Locale.getDefault(), "KI: %.1f%% | gyro=%.1f | Fenster:%d/%d | %s%s",
+                fallProb * 100, maxGyroMag, consecutiveFallWindows, REQUIRED_FALL_WINDOWS, resultText,
                 vetoReason.isEmpty() ? "" : " [" + vetoReason + "]"));
     }
 
