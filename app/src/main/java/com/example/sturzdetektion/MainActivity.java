@@ -58,10 +58,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private int consecutiveFallWindows = 0;
 
-    private static final int NUM_CHANNELS = 7; // Erhöht auf 7 Kanäle
+    private static final int NUM_CHANNELS = 7;
     private static final int NUM_CLASSES = 4;
     private static final int WINDOW_SIZE = 150;
     private static final long INFERENCE_INTERVAL_MS = 400;
+    // Vorgeschichte: erste 100 Samples = 2.0 Sek. (letztes Drittel bleibt für das Ereignis)
+    private static final int PRE_HISTORY_SAMPLES = 100;
 
     // Ringbuffer & Sensor-Daten
     private float[][] sensorWindow = new float[WINDOW_SIZE][NUM_CHANNELS];
@@ -688,8 +690,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             // Abweichung von der Erdschwerkraft summieren (Bewegungsenergie)
             totalMovementInWindow += Math.abs(aMag - 9.81f);
 
-            // Die ersten 40 Samples (ca. 0.8s) als "Vorgeschichte" prüfen
-            if (i < 40) {
+            // Vorgeschichte: erste 100 Samples = 2.0 Sek. vor dem Ereignis
+            if (i < PRE_HISTORY_SAMPLES) {
                 preImpactActivity += Math.abs(aMag - 9.81f);
                 preGyroActivity += gMag;
             }
@@ -705,8 +707,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // Durchschnittliche Bewegung im Fenster (Schüttel-Metrik)
         float avgMovement = totalMovementInWindow / WINDOW_SIZE;
-        float avgPreActivity = preImpactActivity / 40f;
-        float avgPreGyroActivity = preGyroActivity / 40f;
+        float avgPreActivity = preImpactActivity / PRE_HISTORY_SAMPLES;
+        float avgPreGyroActivity = preGyroActivity / PRE_HISTORY_SAMPLES;
 
         // moveAfter: Nur die allerletzten 0.5 Sekunden prüfen (Liegt er danach still?)
         float moveAfter = 0;
@@ -720,8 +722,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
         moveAfter /= lastSamples;
 
-        // Orientierung am Anfang vs Ende des Fensters
-        float tiltStart = calculateTiltAtIndex(windowIndex);
+        // Orientierung: Durchschnitt der ersten PRE_HISTORY Samples vs. letzter Sample
+        // Robuster als nur ein einzelner ältester Wert
+        float tiltStartSum = 0;
+        for (int i = 0; i < PRE_HISTORY_SAMPLES; i++) {
+            tiltStartSum += calculateTiltAtIndex((windowIndex + i) % WINDOW_SIZE);
+        }
+        float tiltStart = tiltStartSum / PRE_HISTORY_SAMPLES;
         float tiltEnd = calculateTiltAtIndex((windowIndex + WINDOW_SIZE - 1) % WINDOW_SIZE);
         float tiltDiff = Math.abs(tiltEnd - tiltStart);
 
