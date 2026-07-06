@@ -50,6 +50,13 @@
     <string name="sim_fall_low_rot">Sturz low-rot</string>
     <string name="sim_fall_high_rot">Sturz high-rot</string>
 
+    <!-- Echte Testdaten (Replay) -->
+    <string name="real_test_section_label">ECHTE DATEN (SisFall / UP-Fall)</string>
+    <string name="btn_real_ruhig">Ruhig [UP-Fall]</string>
+    <string name="btn_real_gehen">Gehen [SisFall]</string>
+    <string name="btn_real_fallaehnlich">Stolpern [SisFall]</string>
+    <string name="btn_real_sturz">Sturz [SisFall]</string>
+
     <!-- Classes -->
     <string name="class_0_name">Ruhiger Alltag</string>
     <string name="class_1_name">Normale Bewegung</string>

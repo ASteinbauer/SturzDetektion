@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import numpy\")",
+      "Bash(pip3 install *)",
+      "Bash(python3 scripts/export_test_sequences.py)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(cp outputs/test_sequences.json ../app/src/main/assets/)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('outputs/test_sequences.json'\\)\\); [print\\(s['class'], s['class_name'], s['expected'], s['dataset']\\) for s in d['sequences']]\")",
+      "Bash(git commit *)",
+      "Bash(git add *)"
+    ]
+  }
+}

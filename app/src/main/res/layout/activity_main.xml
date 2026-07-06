@@ -788,6 +788,74 @@
                                 app:cornerRadius="12dp" />
                         </GridLayout>
 
+                        <!-- Trennlinie + Echte Testdaten -->
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="@color/divider" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="4dp"
+                            android:letterSpacing="0.08"
+                            android:text="@string/real_test_section_label"
+                            android:textColor="@color/status_gray"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <GridLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:columnCount="2">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnRealRuhig"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:layout_margin="4dp"
+                                android:text="@string/btn_real_ruhig"
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnRealGehen"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:layout_margin="4dp"
+                                android:text="@string/btn_real_gehen"
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnRealFallAehnlich"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:layout_margin="4dp"
+                                android:text="@string/btn_real_fallaehnlich"
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnRealSturz"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:layout_margin="4dp"
+                                android:text="@string/btn_real_sturz"
+                                android:textSize="12sp"
+                                app:cornerRadius="12dp" />
+                        </GridLayout>
+
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/buttonCloseTestMode"
                             style="@style/Widget.Material3.Button.TextButton"
