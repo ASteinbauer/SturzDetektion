@@ -1,39 +1,41 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 
 # Daten für den Vergleich
 data = {
     'Metrik': [
-        'Anzahl Kanäle',
+        'Anzahl KI-Kanäle',
+        'Zusatz-Sensoren (App)',
         'Korrekt: Normale Bewegung',
         'Fehlalarme (Sturz)',
-        'Fehlalarm: Normal -> Sturz',
-        'Sturz-Präzision',
-        'Gesamt-Accuracy'
+        'Sturz-Präzision (KI)',
+        'Sicherheits-Logik'
     ],
     'Modell Alt (6-Kanal)': [
         '6 (Accel + Gyro)',
+        'Keine',
         '1040',
         '9',
-        '0',
         '99.2%',
-        '93.87%'
+        'Nur KI-Threshold'
     ],
     'Modell Neu (7-Kanal)': [
-        '7 (+ Gyro Rotation)',
+        '7 (+ Gyro Magnitude)',
+        'Barometer (Veto-Check)',
         '1092',
         '7',
-        '0',
         '99.4%',
-        '93.72%'
+        'KI + Baro + Winkel'
     ],
     'Status': [
         'AKTUALISIERT',
+        'NEU HINZUGEFÜGT',
         'VERBESSERT (+52)',
         'VERBESSERT (-2)',
-        'PERFEKT (0)',
-        'VERBESSERT',
-        'STABIL'
+        'TOP-WERT',
+        'PROF-NIVEAU'
     ]
 }
 
